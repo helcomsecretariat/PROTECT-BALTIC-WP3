@@ -1,6 +1,0 @@
-Ensemble modelling
-
-Authors: 
-
-Objective:
-
