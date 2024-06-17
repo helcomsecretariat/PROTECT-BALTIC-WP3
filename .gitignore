@@ -1,6 +1,5 @@
 # Ignore specific directories
-grid/
-predictors/
+
 
 .Rproj.user
 .Rhistory
