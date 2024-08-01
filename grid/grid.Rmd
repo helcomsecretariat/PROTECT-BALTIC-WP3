@@ -5,14 +5,14 @@ title: "R Notebook"
 ```{r}
 library(terra)
 
-coast <- vect("inputs/_ags_HELCOM_subbasins_with_coastal_and_offshore_divisio/HELCOM_subbasins_with_coastal_and_offshore_division_2022_level3.shp")
+coast <- vect("inputs/_ags_HELCOM_marine_area_2022_level1/HELCOM_marine_area_2022_level1.shp")
 plot(coast)
 
 grid <- rast(crs = crs(coast), extent = ext(coast), resolution = 250)
 grid <- rasterize(coast, grid)
 plot(grid)
 
-writeRaster(grid, "outputs/grid_250m.tif", overwrite = TRUE)
+writeRaster(grid, "outputs/grid_250m.tif", datatype = "INT2U", overwrite = TRUE)
 ```
 
 

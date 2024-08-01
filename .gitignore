@@ -1,7 +1,9 @@
 # Ignore specific directories
+predictors/fishing_effort/inputs/gfw/
+predictors/depth/inputs/BSBD_0.9.6_250m/
 
-
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Ruserdata
 .Rproj.user
-.Rhistory
-.RData
-.Ruserdata

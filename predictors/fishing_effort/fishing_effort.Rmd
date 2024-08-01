@@ -1,0 +1,12 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+df <- 
+```
+
+```{r}
+l <- list.files(path = "inputs/gfw", pattern = "*.csv", full.names = TRUE)
+```
+

@@ -1,0 +1,22 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(terra)
+```
+
+```{r}
+dep <- rast("../bathymetry/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
+grid <- rast("../../grid/outputs/grid_250m.tif")
+dep <- project(dep, grid, method = "near")
+dep[dep >= 0] <- 99
+dep[dep < 0] <- 1
+cd <- costDist(dep, target = 99)
+cd[is.na(grid)] <- NA
+cd <- round(cd, digits = 0)
+
+writeRaster(cd, "distance_from_coast.tif", overwrite = TRUE, 
+            datatype = "INT4U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(cd)
+```
