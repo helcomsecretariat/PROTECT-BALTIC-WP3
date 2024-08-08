@@ -6,3 +6,80 @@ title: "R Notebook"
 library(terra)
 ```
 
+# Depth (as a positive number)
+```{r}
+dep <- rast("inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
+grid <- rast("../../grid/outputs/grid_250m.tif")
+
+dep <- project(dep, grid)
+dep[is.na(grid)] <- NA
+dep[dep > 0] <- 0
+dep <- dep*-1
+writeRaster(dep, "outputs/depth_250m.tif", overwrite = TRUE,
+            datatype = "INT2U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(dep)
+```
+
+# Bathymetric position index
+## A measure of whether the pixel is in a peak or a valley
+## Calculate mean depth within inner circle and compare
+## to depth of a larger outer circle
+```{r}
+dep <- rast("outputs/depth.tif")
+#dep <- crop(dep, ext(2000000, 2200000, 8300000, 8500000)) # For testing
+
+# bpi_500_5000 = inner circle radius 500 m, outer circle radius 5000 m
+w <- focalMat(dep, 500, "circle")
+w[w > 0] <- 1
+inn <- focal(dep, w = w, fun = "mean", na.rm = TRUE, na.policy = "omit")
+inn[is.na(dep)] <- NA
+
+w <- focalMat(dep, 5000, "circle")
+w[w > 0] <- 1
+out <- focal(dep, w = w, fun = "mean", na.rm = TRUE, na.policy = "omit")
+out[is.na(dep)] <- NA
+
+#bpi <- ((inn - out) / out)*-100
+bpi <- (inn - out) *-1
+writeRaster(bpi, "outputs/bpi_500_5000_250m.tif", overwrite = TRUE,
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(bpi)
+
+# bpi_4000_20000 = inner circle radius 500 m, outer circle radius 5000 m
+w <- focalMat(dep, 4000, "circle")
+w[w > 0] <- 1
+inn <- focal(dep, w = w, fun = "mean", na.rm = TRUE, na.policy = "omit")
+inn[is.na(dep)] <- NA
+
+w <- focalMat(dep, 20000, "circle")
+w[w > 0] <- 1
+out <- focal(dep, w = w, fun = "mean", na.rm = TRUE, na.policy = "omit")
+out[is.na(dep)] <- NA
+
+#bpi <- ((inn - out) / out)*-100
+bpi <- (inn - out) *-1
+writeRaster(bpi, "outputs/bpi_4000_20000_250m.tif", overwrite = TRUE,
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(bpi)
+```
+
+# Slope
+```{r}
+dep <- rast("outputs/depth.tif")
+slo <- terrain(dep, v = "slope", unit = "degrees", neighbors = 8)
+
+writeRaster(slo, "outputs/slope_250m.tif", overwrite = TRUE,
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(slo)
+```
+
+# Aspect
+```{r}
+dep <- rast("outputs/depth.tif")
+slo <- terrain(dep, v = "aspect", neighbors = 8)
+writeRaster(slo, "outputs/aspect_250m.tif", overwrite = TRUE,
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(slo)
+```
+
+
