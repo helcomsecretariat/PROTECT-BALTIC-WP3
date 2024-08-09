@@ -13,7 +13,7 @@ grid <- rast("../../grid/outputs/grid_250m.tif")
 # Calculate total fishing hours each year per grid cell
 # Warning: this will take a while to run
 ```{r}
-for(i in 2019:2020){
+for(i in 2012:2020){
   yr <- i
   l <- list.files(path = paste0("inputs/gfw/fleet-daily-csvs-100-v2-", yr), pattern = "*.csv", full.names = TRUE)
   
