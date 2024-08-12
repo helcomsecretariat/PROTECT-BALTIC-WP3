@@ -37,12 +37,11 @@ for(i in 2012:2020){
 
 # More robust and less memory needed
 ```{r}
-for(j in 2012:2012){
+for(j in 2012:2020){
   yr <- j
   l <- list.files(path = paste0("inputs/gfw/fleet-daily-csvs-100-v2-", yr), pattern = "*.csv", full.names = TRUE)
   
   for(i in 1:length(l)){
-  #for(i in 1:1){
     if(i == 1){dat <- read.csv(l[i])} else {
     
     dat <- filter(dat, cell_ll_lat > 52 & cell_ll_lat < 68 & cell_ll_lon > 6 & cell_ll_lon < 35)
@@ -61,7 +60,7 @@ for(j in 2012:2012){
       ungroup()
   
     }
-    cat("\nIteration ", i, "done")
+  if(i == 100 | i == 300){cat("\nIteration ", i, "done")}
   }
   
   dat <- select(dat, cell_ll_lat, cell_ll_lon, fishing_hours)
@@ -69,7 +68,7 @@ for(j in 2012:2012){
   write.csv(dat,
             paste0("inputs/gfw_sum/_archive/fleet-daily-csvs-100-v2-", yr, "_sum.csv"), 
             row.names = FALSE)
-  cat("\nIteration ", j, "done")
+  cat("\nYear ", j, "done")
 
 }
 ```
@@ -90,7 +89,6 @@ rem_errors <- function(x){
 
 for(i in 2012:2020){
   dat <- read.csv(paste0("inputs/gfw_sum/fleet-daily-csvs-100-v2-", i, "_sum.csv"))
-  #dat <- vect(dat, geom = c("long", "lat"), crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
   dat <- select(dat, long, lat, fishing_hours)
   dat <- rem_errors(dat)
   temp <- rast(dat, type = "xyz", crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
@@ -110,7 +108,7 @@ gfw_mean <- app(gfw, fun = mean, na.rm = TRUE)
 gfw_mean[is.na(gfw_mean)] <- 0
 gfw_mean[is.na(grid)] <- NA
 
-writeRaster(gfw_mean, "outputs/gfw_mean_250m.tif", overwrite = TRUE,
+writeRaster(gfw_mean, "outputs/fishing_effort_mean_250m.tif", overwrite = TRUE,
             datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(gfw_mean)
 ```
@@ -137,7 +135,7 @@ gfw_q[gfw_mean >= p[7] & gfw_mean < p[8]] <- 8
 gfw_q[gfw_mean >= p[8] & gfw_mean < p[9]] <- 9
 gfw_q[gfw_mean >= p[9]] <- 10
 
-writeRaster(gfw_q, "outputs/gfw_quantiles_250m.tif", overwrite = TRUE,
+writeRaster(gfw_q, "outputs/fishing_effort_quantiles_250m.tif", overwrite = TRUE,
             datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 plot(gfw_q)

@@ -1,6 +1,7 @@
-# Ignore specific directories
+# Ignore specific directories and large files
 predictors/fishing_effort/inputs/gfw/
 predictors/depth/inputs/BSBD_0.9.6_250m/
+predictors/predictor_stack.tif
 
 *.Rproj.user
 *.Rhistory

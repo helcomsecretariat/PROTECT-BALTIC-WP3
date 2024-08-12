@@ -1,0 +1,40 @@
+---
+title: "R Notebook"
+---
+
+# Load packaged
+```{r}
+library(terra)
+```
+
+# Specify predictors
+```{r}
+plist <- c("depth/outputs/aspect_250m.tif",
+           "depth/outputs/bpi_500_5000_250m.tif",
+           "depth/outputs/bpi_4000_20000_250m.tif",
+           "depth/outputs/depth_250m.tif",
+           "depth/outputs/slope_250m.tif",
+           "distance_from_coast/outputs/distance_from_coast_250m.tif",
+           "fishing_effort/outputs/fishing_effort_mean_250m.tif",
+           "fishing_effort/outputs/fishing_effort_quantiles_250m.tif"
+           )
+```
+
+```{r}
+preds <- rast(plist)
+names(preds) <- tools::file_path_sans_ext(basename(plist))
+writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
+            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(preds)
+```
+
+# Optional: save individual predictor layers in single folder
+```{r}
+for(i in 1:nlyr(preds)){
+  writeRaster(preds[[i]], paste0("_predictor_stack/", names(preds)[i], ".tif"), 
+              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
+```
+
+
+

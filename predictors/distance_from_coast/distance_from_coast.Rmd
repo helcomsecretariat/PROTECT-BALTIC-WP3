@@ -16,7 +16,7 @@ cd <- costDist(dep, target = 99)
 cd[is.na(grid)] <- NA
 cd <- round(cd, digits = 0)
 
-writeRaster(cd, "distance_from_coast.tif", overwrite = TRUE, 
+writeRaster(cd, "outputs/distance_from_coast_250m.tif", overwrite = TRUE, 
             datatype = "INT4U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(cd)
 ```
