@@ -6,6 +6,7 @@ predictors/depth/inputs/BSBD_0.9.6_250m/
 predictors/temperature/inputs/temp/
 predictors/wave_exposure/inputs/temp/
 predictors/temperature/inputs/temp/
+predictors/salinity/inputs/temp/
 
 # Ignore final predictor stack
 predictors/predictor_stack.tif
