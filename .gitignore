@@ -1,9 +1,16 @@
-# Ignore specific directories and large files
+# Ignore large input files
 predictors/fishing_effort/inputs/gfw/
 predictors/depth/inputs/BSBD_0.9.6_250m/
-predictors/predictor_stack.tif
+
+# Ignore temporary directories
+predictors/temperature/inputs/temp/
+predictors/wave_exposure/inputs/temp/
 predictors/temperature/inputs/temp/
 
+# Ignore final predictor stack
+predictors/predictor_stack.tif
+
+# Ignore user files
 *.Rproj.user
 *.Rhistory
 *.RData
