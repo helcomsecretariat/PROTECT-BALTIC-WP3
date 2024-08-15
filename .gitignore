@@ -2,6 +2,8 @@
 predictors/fishing_effort/inputs/gfw/
 predictors/depth/inputs/BSBD_0.9.6_250m/
 predictors/predictor_stack.tif
+predictors/temperature/es_login_ignore.R
+predictors/temperature/inputs/temp/
 
 *.Rproj.user
 *.Rhistory
