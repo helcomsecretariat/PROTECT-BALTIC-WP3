@@ -8,7 +8,7 @@ library(terra)
 grid <- rast("../../grid/outputs/grid_250m.tif")
 if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
 if(!dir.exists("outputs")){dir.create("outputs")}
-source("resint.R") # Script for resampling
+source("../_functions/resint.R") # Script for resampling
 ```
 
 # Pull data from Copernicus
@@ -28,7 +28,6 @@ l <- list.files("inputs/temp", full.names = TRUE)
 r <- rast(l[1])
 names(r)
 ```
-
 
 # Summer bottom temperature means
 ```{r}
@@ -111,6 +110,6 @@ writeRaster(temp_res, "outputs/year_round_bottomT_mean_resample_250m.tif", overw
 # Remove netCDF files from disk
 ```{r}
 l <- list.files("inputs/temp", full.names = TRUE)
-#file.remove(l) 
+file.remove(l) 
 ```
 
