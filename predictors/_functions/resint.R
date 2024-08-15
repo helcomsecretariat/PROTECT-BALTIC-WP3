@@ -19,10 +19,11 @@ resint <- function(source, grid, nit = 100, win_size = 2, method = "cubic"){
     source[is.na(source)] <- f[is.na(source)]
     source[is.na(grid)] <- NA
     perc <- (i/nit)*100
+    cat("\f")
     cat("\r", perc, "% complete")
 
     if(identical(terra::values(sp), terra::values(source))){
-      cat("\014") 
+      cat("\f") 
       cat("\r100% complete")
       cat("\nExtrapolation complete after", i-1, "iterations")
       break
