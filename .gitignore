@@ -11,6 +11,9 @@ predictors/salinity/inputs/temp/
 # Ignore final predictor stack
 predictors/predictor_stack.tif
 
+# Ignore archives
+_archive/
+
 # Ignore user files
 *.Rproj.user
 *.Rhistory
