@@ -16,9 +16,13 @@ source("../_functions/resint.R") # Script for resampling
 file_tibble <- cms_list_stac_files("BALTICSEA_MULTIYEAR_PHY_003_011", "cmems_mod_bal_phy_my_P1M-m")
 ```
 
-# Examine table to determine which years/months to download
+# Specify which years to download
 ```{r}
-file_tibble <- file_tibble[253:348,]
+yrs <- c(2014, 2021)
+start <- which(grepl(pattern = paste0(yrs[1], "01.nc$"), file_tibble$current_path))
+stop <- which(grepl(pattern = paste0(yrs[2], "12.nc$"), file_tibble$current_path))
+
+file_tibble <- file_tibble[start:stop,]
 cms_download_stac(file_tibble, destination = "inputs/temp")
 ```
 
@@ -45,10 +49,9 @@ temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/summer_bottomT_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-```
+
 
 ## Resample to higher resolution
-```{r}
 temp <- app(r, fun = mean)
 temp_res <- resint(temp, grid, nit = 200, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/summer_bottomT_mean_resample_250m.tif", overwrite = TRUE, 
@@ -71,17 +74,15 @@ temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/winter_bottomT_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-```
 
 ## Resample to higher resolution
-```{r}
 temp <- app(r, fun = mean)
 temp_res <- resint(temp, grid, nit = 200, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/winter_bottomT_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# Year-round bottom temperature means
+# Year-round bottom temperature means and SD
 ```{r}
 l <- list.files("inputs/temp", full.names = TRUE)
 #l <- l[grepl(".*(12|01|02)\\.nc$", l)] # Filter December, January, February
@@ -92,18 +93,30 @@ for(i in 1:length(l)){
   }
 }
 
+# Mean
 temp <- app(r, fun = mean)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/year_round_bottomT_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-```
 
 ## Resample to higher resolution
-```{r}
 temp <- app(r, fun = mean)
 temp_res <- resint(temp, grid, nit = 200, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/year_round_bottomT_mean_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+
+# Standard deviation
+temp <- app(r, fun = sd)
+temp <- project(temp, grid, method = "near")
+temp <- temp*grid
+writeRaster(temp, "outputs/year_round_bottomT_sd_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+
+## Resample to higher resolution
+temp <- app(r, fun = sd)
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+writeRaster(temp_res, "outputs/year_round_bottomT_sd_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
