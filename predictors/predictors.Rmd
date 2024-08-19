@@ -16,7 +16,19 @@ plist <- c("depth/outputs/aspect_250m.tif",
            "depth/outputs/slope_250m.tif",
            "distance_from_coast/outputs/distance_from_coast_250m.tif",
            "fishing_effort/outputs/fishing_effort_mean_250m.tif",
-           "fishing_effort/outputs/fishing_effort_quantiles_250m.tif"
+           "fishing_effort/outputs/fishing_effort_quantiles_250m.tif",
+           "temperature/outputs/summer_bottomT_mean_resample_250m.tif",
+           "temperature/outputs/summer_surfaceT_mean_resample_250m.tif",
+           "temperature/outputs/winter_bottomT_mean_resample_250m.tif",
+           "temperature/outputs/winter_surfaceT_mean_resample_250m.tif",
+           "temperature/outputs/year_round_bottomT_mean_resample_250m.tif",
+           "temperature/outputs/year_round_bottomT_sd_resample_250m.tif",
+           "temperature/outputs/year_round_surfaceT_mean_resample_250m.tif",
+           "temperature/outputs/year_round_surfaceT_sd_resample_250m.tif",
+           "salinity/outputs/bottom_salinity_mean_resample_250m.tif",
+           "salinity/outputs/surface_salinity_mean_resample_250m.tif",
+           "wave_exposure/outputs/wave_sig_height_mean_resample_250m.tif.tif",
+           "wave_exposure/outputs/wave_sig_height_sd_resample_250m.tif"
            )
 ```
 
