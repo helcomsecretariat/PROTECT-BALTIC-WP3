@@ -13,6 +13,7 @@ predictors/predictor_stack.tif
 
 # Ignore archives
 _archive/
+**/inputs/temp/
 
 # Ignore user files
 *.Rproj.user
