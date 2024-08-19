@@ -15,7 +15,7 @@ resint <- function(source, grid, nit = 100, win_size = 2, method = "cubic"){
     sp <- source
     w <- terra::focalMat(source, win_size, "circle")
     w[w > 0] <- 1
-    f <- terra::focal(source, w = w, fun = "mean", na.policy = "only", na.rm=TRUE)
+    f <- terra::focal(source, w = w, fun = "mean", na.policy = "only", na.rm=TRUE, progress = 0)
     source[is.na(source)] <- f[is.na(source)]
     source[is.na(grid)] <- NA
     perc <- (i/nit)*100
