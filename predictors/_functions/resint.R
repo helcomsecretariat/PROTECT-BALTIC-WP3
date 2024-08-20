@@ -6,7 +6,7 @@
 # experiment with this value to see what works best.
 
 
-resint <- function(source, grid, nit = 100, win_size = 2, method = "cubic"){
+resint <- function(source, grid, nit = 30, win_size = 2, method = "cubic"){
 
   win_size <- terra::res(grid)[1] * win_size
   source <- terra::project(source, grid, method = method, progress = 0)
