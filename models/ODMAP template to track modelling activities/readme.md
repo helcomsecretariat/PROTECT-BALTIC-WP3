@@ -4,7 +4,7 @@ Zurell, D., Franklin, J., König, C., Bouchet, P. J., Dormann, C. F., Elith, J.,
 
 ## Overview
 ## Data
-### Model
+## Model
 ## Assessment
 ## Prediction
 
