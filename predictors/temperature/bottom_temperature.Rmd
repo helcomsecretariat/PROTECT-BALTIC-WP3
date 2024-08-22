@@ -125,4 +125,3 @@ writeRaster(temp_res, "outputs/year_round_bottomT_sd_resample_250m.tif", overwri
 l <- list.files("inputs/temp", full.names = TRUE)
 file.remove(l) 
 ```
-

@@ -1,0 +1,66 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(CopernicusMarine)
+library(terra)
+grid <- rast("../../grid/outputs/grid_250m.tif")
+if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
+if(!dir.exists("outputs")){dir.create("outputs")}
+source("../_functions/resint.R") # Script for resampling
+```
+# EUSeaMap 2023 Biozones
+```{r}
+ex <- vect("../../grid/inputs/_ags_HELCOM_marine_area_2022_level1/HELCOM_marine_area_2022_level1.shp")
+sub <- vect("inputs/EUSeaMap_2023_Biozone/EUSeaMap_2023_Biozone.shp")
+sub <- project(sub, crs(grid, proj = TRUE))
+sub <- rasterize(sub, grid, field = "Biozone")
+
+writeRaster(sub, "outputs/biozone_250m.tif", overwrite = TRUE)
+```
+
+# Resample to higher resolution
+```{r}
+lvl <- levels(sub)[[1]]
+bio <- grid
+bio[bio == 1] <- NA
+
+for(i in lvl[,1]){
+  bio[sub == i] <- i
+}
+
+
+bio_res <- resint(bio, grid, nit = 30, win_size = 3, method = "cubic")
+bio_res <- round(bio_res)
+levels(bio_res) <- levels(sub)
+writeRaster(bio_res, "outputs/biozone_resample_250m.tif", overwrite = TRUE)
+```
+
+
+# HOLAS Balance Sediment
+```{r}
+ex <- vect("../../grid/inputs/_ags_HELCOM_marine_area_2022_level1/HELCOM_marine_area_2022_level1.shp")
+sub <- vect("inputs/HOLAS_BALANCE_Sediment/HOLAS_BALANCE_Sediment.shp")
+sub <- project(sub, crs(grid, proj = TRUE))
+sub <- rasterize(sub, grid, field = "Sediment")
+
+writeRaster(sub, "outputs/sediment_250m.tif", overwrite = TRUE)
+```
+
+# Resample to higher resolution
+```{r}
+lvl <- levels(sub)[[1]]
+bio <- grid
+bio[bio == 1] <- NA
+
+for(i in lvl[,1]){
+  bio[sub == i] <- i
+}
+
+
+bio_res <- resint(bio, grid, nit = 30, win_size = 3, method = "cubic")
+bio_res <- round(bio_res)
+levels(bio_res) <- levels(sub)
+writeRaster(bio_res, "outputs/sediment_resample_250m.tif", overwrite = TRUE)
+```

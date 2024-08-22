@@ -70,7 +70,7 @@ writeRaster(wave, "outputs/wave_sig_height_mean_250m.tif", overwrite = TRUE,
 
 # Resample to higher resolution
 wave_res <- resint(wave, grid, nit = 50, win_size = 3, method = "cubic")
-writeRaster(wave_res, "outputs/wave_sig_height_mean_resample_250m.tif", overwrite = TRUE, 
+writeRaster(wave_res, "outputs/wave_sig_height_mean_resample_250m.tif.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 

@@ -9,7 +9,8 @@ library(terra)
 
 # Specify predictors
 ```{r}
-plist <- c("depth/outputs/aspect_250m.tif",
+# Continuous predictors
+pcont <- c("depth/outputs/aspect_250m.tif",
            "depth/outputs/bpi_500_5000_250m.tif",
            "depth/outputs/bpi_4000_20000_250m.tif",
            "depth/outputs/depth_250m.tif",
@@ -28,12 +29,36 @@ plist <- c("depth/outputs/aspect_250m.tif",
            "salinity/outputs/bottom_salinity_mean_resample_250m.tif",
            "salinity/outputs/surface_salinity_mean_resample_250m.tif",
            "wave_exposure/outputs/wave_sig_height_mean_resample_250m.tif.tif",
-           "wave_exposure/outputs/wave_sig_height_sd_resample_250m.tif"
+           "wave_exposure/outputs/wave_sig_height_sd_resample_250m.tif",
+           "secchi_depth/outputs/secchi_depth_mean_resample_250m.tif",
+           "secchi_depth/outputs/secchi_depth_sd_resample_250m.tif",
+           "ph/outputs/ph_mean_resample_250m.tif",
+           "ph/outputs/ph_sd_resample_250m.tif",
+           "chloro_a/outputs/chloro_a_mean_resample_250m.tif",
+           "chloro_a/outputs/chloro_a_sd_resample_250m.tif"
            )
+
+# Categorical predictors
+pcat <- c("substrate/outputs/biozone_resample_250m.tif",
+          "substrate/outputs/sediment_resample_250m.tif"
+          )
 ```
 
+# Save only continuous predictors
 ```{r}
-preds <- rast(plist)
+preds <- rast(pcont)
+saveRDS(preds, "predictor_stack_no_cat.rds")
+```
+
+# Save also categorical predictors
+```{r}
+preds <- rast(c(pcont, pcat))
+saveRDS(preds, "predictor_stack_no_cat.rds")
+```
+
+# Write to tif
+```{r}
+preds <- rast(c(pcont, pcat))
 names(preds) <- tools::file_path_sans_ext(basename(plist))
 writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
             gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
