@@ -6,6 +6,12 @@ title: "R Notebook"
 ```{r}
 library(terra)
 ```
+# Clear existing raster incase of errors
+```{r}
+l <- list.files("_predictor_stack", full.names = TRUE)
+file.remove(l)
+```
+
 
 # Specify predictors
 ```{r}
@@ -28,7 +34,7 @@ pcont <- c("depth/outputs/aspect_250m.tif",
            "temperature/outputs/year_round_surfaceT_sd_resample_250m.tif",
            "salinity/outputs/bottom_salinity_mean_resample_250m.tif",
            "salinity/outputs/surface_salinity_mean_resample_250m.tif",
-           "wave_exposure/outputs/wave_sig_height_mean_resample_250m.tif.tif",
+           "wave_exposure/outputs/wave_sig_height_mean_resample_250m.tif",
            "wave_exposure/outputs/wave_sig_height_sd_resample_250m.tif",
            "secchi_depth/outputs/secchi_depth_mean_resample_250m.tif",
            "secchi_depth/outputs/secchi_depth_sd_resample_250m.tif",
@@ -37,7 +43,11 @@ pcont <- c("depth/outputs/aspect_250m.tif",
            "chloro_a/outputs/chloro_a_mean_resample_250m.tif",
            "chloro_a/outputs/chloro_a_sd_resample_250m.tif",
            "primary_productivity/outputs/primary_productivity_mean_resample_250m.tif",
-           "primary_productivity/outputs/primary_productivity_sd_resample_250m.tif"
+           "primary_productivity/outputs/primary_productivity_sd_resample_250m.tif",
+           "oxygen/outputs/o2_surface_mean_resample_250m.tif",
+           "oxygen/outputs/o2_surface_sd_resample_250m.tif",
+           "oxygen/outputs/o2_bottom_mean_resample_250m.tif",
+           "oxygen/outputs/o2_bottom_sd_resample_250m.tif"
            )
 
 # Categorical predictors
@@ -46,22 +56,13 @@ pcat <- c("substrate/outputs/biozone_resample_250m.tif",
           )
 ```
 
-# Save only continuous predictors
-```{r}
-preds <- rast(pcont)
-saveRDS(preds, "predictor_stack_no_cat.rds")
-```
-
-# Save also categorical predictors
-```{r}
-preds <- rast(c(pcont, pcat))
-saveRDS(preds, "predictor_stack_no_cat.rds")
-```
 
 # Write to tif
 ```{r}
-preds <- rast(c(pcont, pcat))
+plist <- c(pcont, pcat)
+preds <- rast(plist)
 names(preds) <- tools::file_path_sans_ext(basename(plist))
+
 writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
             gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(preds)
@@ -69,11 +70,31 @@ plot(preds)
 
 # Optional: save individual predictor layers in single folder
 ```{r}
+plist <- c(pcont, pcat)
+preds <- rast(plist)
+names(preds) <- tools::file_path_sans_ext(basename(plist))
+
 for(i in 1:nlyr(preds)){
   writeRaster(preds[[i]], paste0("_predictor_stack/", names(preds)[i], ".tif"), 
               overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 }
 ```
+
+****************
+# Test for multicollinearity
+```{r}
+library(usdm)
+
+plist <- pcont
+preds <- rast(plist)
+names(preds) <- tools::file_path_sans_ext(basename(plist))
+
+samp <- spatSample(preds, size = 10000, na.rm = TRUE, as.df = TRUE)
+viftest <- vif(samp)
+print(viftest)
+vifstep(samp, th = 10)
+```
+
 
 
 
