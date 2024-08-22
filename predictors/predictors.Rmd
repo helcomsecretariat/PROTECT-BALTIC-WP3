@@ -35,7 +35,9 @@ pcont <- c("depth/outputs/aspect_250m.tif",
            "ph/outputs/ph_mean_resample_250m.tif",
            "ph/outputs/ph_sd_resample_250m.tif",
            "chloro_a/outputs/chloro_a_mean_resample_250m.tif",
-           "chloro_a/outputs/chloro_a_sd_resample_250m.tif"
+           "chloro_a/outputs/chloro_a_sd_resample_250m.tif",
+           "primary_productivity/outputs/primary_productivity_mean_resample_250m.tif",
+           "primary_productivity/outputs/primary_productivity_sd_resample_250m.tif"
            )
 
 # Categorical predictors

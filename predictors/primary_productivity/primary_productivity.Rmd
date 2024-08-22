@@ -46,13 +46,13 @@ for(i in 1:length(l)){
 temp <- app(r, fun = mean)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-writeRaster(temp, "outputs/nppv_mean_250m.tif", overwrite = TRUE, 
+writeRaster(temp, "outputs/primary_productivity_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 ## Resample to higher resolution
 temp <- app(r, fun = mean)
 temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
-writeRaster(temp_res, "outputs/nppv_mean_resample_250m.tif", overwrite = TRUE, 
+writeRaster(temp_res, "outputs/primary_productivity_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
@@ -61,13 +61,13 @@ writeRaster(temp_res, "outputs/nppv_mean_resample_250m.tif", overwrite = TRUE,
 temp <- app(r, fun = sd)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-writeRaster(temp, "outputs/nppv_sd_250m.tif", overwrite = TRUE, 
+writeRaster(temp, "outputs/primary_productivity_sd_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 ## Resample to higher resolution
 temp <- app(r, fun = sd)
 temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
-writeRaster(temp_res, "outputs/nppv_sd_resample_250m.tif", overwrite = TRUE, 
+writeRaster(temp_res, "outputs/primary_productivity_sd_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
