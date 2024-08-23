@@ -54,7 +54,7 @@
     <Description>surface_salinity_mean_resample_250m</Description>
   </PAMRasterBand>
   <PAMRasterBand band="19">
-    <Description>wave_sig_height_mean_resample_250m.tif</Description>
+    <Description>wave_sig_height_mean_resample_250m</Description>
   </PAMRasterBand>
   <PAMRasterBand band="20">
     <Description>wave_sig_height_sd_resample_250m</Description>
@@ -78,6 +78,27 @@
     <Description>chloro_a_sd_resample_250m</Description>
   </PAMRasterBand>
   <PAMRasterBand band="27">
+    <Description>primary_productivity_mean_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="28">
+    <Description>primary_productivity_sd_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="29">
+    <Description>o2_surface_mean_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="30">
+    <Description>o2_surface_sd_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="31">
+    <Description>o2_bottom_mean_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="32">
+    <Description>o2_bottom_sd_resample_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="33">
+    <Description>distance_to_rivers_250m</Description>
+  </PAMRasterBand>
+  <PAMRasterBand band="34">
     <Description>biozone_resample_250m</Description>
     <CategoryNames>
       <Category>Deep circalittoral</Category>
@@ -338,7 +359,7 @@
       <Category></Category>
     </CategoryNames>
   </PAMRasterBand>
-  <PAMRasterBand band="28">
+  <PAMRasterBand band="35">
     <Description>sediment_resample_250m</Description>
     <CategoryNames>
       <Category>Non-photic hard bottom</Category>

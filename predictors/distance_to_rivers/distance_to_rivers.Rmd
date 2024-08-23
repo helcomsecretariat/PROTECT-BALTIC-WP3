@@ -1,0 +1,26 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(terra)
+grid <- rast("../../grid/outputs/grid_250m.tif")
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
+source("../_functions/resint.R") # Script for resampling
+```
+# Use cost distance to measure distance to rivers
+```{r}
+riv <- vect("inputs/_ags_Rivers_1/Rivers_1.shp")
+temp <- grid
+values(temp) <- 1
+
+riv <- rasterize(riv, temp, field = 1)
+temp[riv == 1] <- 99
+cd <- costDist(temp, target = 99)
+cd <- cd*grid
+
+writeRaster(cd, "outputs/distance_to_rivers_250m.tif", overwrite = TRUE, 
+            datatype = "INT4U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+

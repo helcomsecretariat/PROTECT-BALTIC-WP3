@@ -5,13 +5,17 @@ title: "R Notebook"
 # Load packaged
 ```{r}
 library(terra)
+if(!dir.exists("_predictor_stack")){dir.create("_predictor_stack", recursive = TRUE)}
+if(!dir.exists("_predictor_stack_vif")){dir.create("_predictor_stack_vif", recursive = TRUE)}
 ```
 # Clear existing raster incase of errors
 ```{r}
 l <- list.files("_predictor_stack", full.names = TRUE)
 file.remove(l)
-```
 
+l <- list.files("_predictor_stack_vif", full.names = TRUE)
+file.remove(l)
+```
 
 # Specify predictors
 ```{r}
@@ -47,7 +51,8 @@ pcont <- c("depth/outputs/aspect_250m.tif",
            "oxygen/outputs/o2_surface_mean_resample_250m.tif",
            "oxygen/outputs/o2_surface_sd_resample_250m.tif",
            "oxygen/outputs/o2_bottom_mean_resample_250m.tif",
-           "oxygen/outputs/o2_bottom_sd_resample_250m.tif"
+           "oxygen/outputs/o2_bottom_sd_resample_250m.tif",
+           "distance_to_rivers/outputs/distance_to_rivers_250m.tif"
            )
 
 # Categorical predictors
@@ -65,10 +70,9 @@ names(preds) <- tools::file_path_sans_ext(basename(plist))
 
 writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
             gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-plot(preds)
 ```
 
-# Optional: save individual predictor layers in single folder
+# Save individual predictor layers in single folder
 ```{r}
 plist <- c(pcont, pcat)
 preds <- rast(plist)
@@ -80,7 +84,6 @@ for(i in 1:nlyr(preds)){
 }
 ```
 
-****************
 # Test for multicollinearity
 ```{r}
 library(usdm)
@@ -89,12 +92,25 @@ plist <- pcont
 preds <- rast(plist)
 names(preds) <- tools::file_path_sans_ext(basename(plist))
 
-samp <- spatSample(preds, size = 10000, na.rm = TRUE, as.df = TRUE)
-viftest <- vif(samp)
-print(viftest)
-vifstep(samp, th = 10)
+samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+viftest <- vifstep(samp, th = 10)
+viftest@excluded
 ```
 
+# Save only VIF < 10 predictor layers in single folder
+```{r}
+preds <- preds[[viftest@results$Variables]]
+temp <- rast(pcat)
+names(temp) <- tools::file_path_sans_ext(basename(pcat))
+
+preds <- c(preds, temp)
+
+
+for(i in 1:nlyr(preds)){
+  writeRaster(preds[[i]], paste0("_predictor_stack_vif/", names(preds)[i], ".tif"), 
+              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
+```
 
 
 
