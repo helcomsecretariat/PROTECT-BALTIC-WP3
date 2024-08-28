@@ -13,7 +13,11 @@ library(lubridate)
 library(leaflet)
 library(vctrs)
 
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
 grid <- rast("../../../grid/outputs/grid_250m.tif")
+plot_agg <- 5 # Factor by which to decrease plotting resolution
+pred_agg <- 1 # Factor by which to decrease predictor resolution
 ```
 
 ## Install packages for ensemble modelling (if not already installled)
@@ -60,7 +64,7 @@ summary(as.factor(df$scien_name))
 
 ## Filter by species
 ```{r}
-spec <- "Macoma balthica"
+spec <- "Saduria entomon"
 sdir <- paste0("outputs/", gsub(" ", "_", spec))
 mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
 if(!dir.exists(sdir)){dir.create(sdir)}
@@ -116,7 +120,7 @@ preds <- preds[[pred_keep]]
 
 # Optional: change to lower resolution to speed up processing
 # Aggregate by 4 changes 250m to 1km
-#preds <- aggregate(preds, fact = 4, fun = "mean")
+if(pred_agg > 1){preds <- aggregate(preds, fact = pred_agg, fun = "mean")}
 
 plot(preds)
 ```
@@ -161,7 +165,7 @@ plot(p)
 ```{r}
 e <- ensemble(mod, newdata = p)
 temp <- project(e, "EPSG:3857", method = "near")
-temp <- aggregate(temp, fact = 5, fun = "max") # Decrease resolution for plotting
+if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 ```
 
@@ -169,7 +173,7 @@ plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 ```{r}
 presab <- pa(e, mod, id = "ensemble", opt = 5) # try opt = 9 also
 temp <- project(presab, "EPSG:3857", method = "near")
-temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 ```
 
@@ -203,11 +207,11 @@ e[dep > depth_thresh] <- 0; presab[dep > depth_thresh] <- 0
 
 # Plot
 temp <- project(e, "EPSG:3857", method = "near")
-temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 
 temp <- project(presab, "EPSG:3857", method = "near")
-temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 ```
 
