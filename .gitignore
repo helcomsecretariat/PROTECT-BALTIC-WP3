@@ -12,6 +12,9 @@ predictors/salinity/inputs/temp/
 
 # Ignore final predictor stack
 predictors/predictor_stack.tif
+predictors/predictor_stack.tif.aux.xml
+predictors/predictor_stack_vif.tif
+predictors/predictor_stack_vif.tif.aux.xml
 
 # Ignore archives
 _archive/
