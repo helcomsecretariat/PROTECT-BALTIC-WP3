@@ -64,7 +64,7 @@ summary(as.factor(df$scien_name))
 
 ## Filter by species
 ```{r}
-spec <- "Saduria entomon"
+spec <- "Macoma balthica"
 sdir <- paste0("outputs/", gsub(" ", "_", spec))
 mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
 if(!dir.exists(sdir)){dir.create(sdir)}
@@ -217,11 +217,15 @@ plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 
 ## Export model predictions
 ```{r}
+# Scale 0 to 100 and convert to integer to reduce file size
+e <- e*100
 fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_probability.tif")
-writeRaster(e, fp, overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+writeRaster(e, fp, overwrite = TRUE, 
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_pa.tif")
-writeRaster(presab, fp, overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+writeRaster(presab, fp, overwrite = TRUE, 
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
 
