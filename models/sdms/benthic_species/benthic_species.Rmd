@@ -218,10 +218,10 @@ plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 ## Export model predictions
 ```{r}
 fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_probability.tif")
-writeRaster(e, fp, overwrite = TRUE)
+writeRaster(e, fp, overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_pa.tif")
-writeRaster(presab, fp, overwrite = TRUE)
+writeRaster(presab, fp, overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
 
