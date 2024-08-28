@@ -97,7 +97,7 @@ viftest <- vifstep(samp, th = 10)
 viftest@excluded
 ```
 
-# Save only VIF < 10 predictor layers in single folder
+# Save only VIF < 10 predictor layers as stack and in single folder
 ```{r}
 preds <- preds[[viftest@results$Variables]]
 temp <- rast(pcat)
@@ -105,12 +105,13 @@ names(temp) <- tools::file_path_sans_ext(basename(pcat))
 
 preds <- c(preds, temp)
 
+writeRaster(preds, "predictor_stack_vif.tif", overwrite = TRUE, 
+            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 for(i in 1:nlyr(preds)){
   writeRaster(preds[[i]], paste0("_predictor_stack_vif/", names(preds)[i], ".tif"), 
               overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 }
 ```
-
 
 
