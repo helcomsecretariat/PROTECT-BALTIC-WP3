@@ -16,6 +16,10 @@ predictors/predictor_stack.tif.aux.xml
 predictors/predictor_stack_vif.tif
 predictors/predictor_stack_vif.tif.aux.xml
 
+# Ignore large observation data
+models/sdms/benthic_species/inputs/EE_benthic_species_observations_19062024.csv
+models/sdms/benthic_species/inputs/ICES_benthic_species_zoobenthos_23082024.csv
+
 # Ignore archives
 _archive/
 **/inputs/temp/
