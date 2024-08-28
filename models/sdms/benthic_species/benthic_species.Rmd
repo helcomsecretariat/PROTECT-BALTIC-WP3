@@ -1,0 +1,224 @@
+---
+title: "R Notebook"
+---
+
+# Setup
+## Load packages, etc.
+```{r, include = FALSE}
+library(dplyr)
+library(sdm)
+library(terra)
+library(scales)
+library(lubridate)
+library(leaflet)
+library(vctrs)
+
+grid <- rast("../../../grid/outputs/grid_250m.tif")
+```
+
+## Install packages for ensemble modelling (if not already installled)
+```{r}
+#sdm::installAll(update = TRUE) # Install all modeling packages if not done already
+sdm::getmethodNames()
+```
+
+# Import and filter observation data
+```{r}
+df <- read.csv("inputs/ICES_benthic_species_zoobenthos_23082024.csv", sep = "|")
+df$date <- ymd_hms(df$date)
+```
+
+## Assuming any samples where a species was not observed are absences.
+## i.e. that the sampling was recording all species present
+```{r}
+# Use only counts of individuals
+df <- filter(df, q_unit == "individuals")
+
+df <- df %>%
+  group_by(date, start_lat, start_long) %>%
+  reframe(scien_name = c(scien_name, "_absence"),
+          origin_id = c(origin_id, NA),
+          station_id = c(station_id, NA),
+          sample_id = c(sample_id, NA),
+          quantity = c(quantity, 0),
+          q_type = c(q_type, NA),
+          q_unit = c(q_unit, "individuals")
+          )
+
+df <- df %>%
+  group_by(date, start_lat, start_long) %>%
+  mutate(group_id = cur_group_id())
+
+df <- relocate(df, group_id)
+```
+
+# Specify species
+## Get number of presence records per species
+```{r}
+summary(as.factor(df$scien_name))
+```
+
+## Filter by species
+```{r}
+spec <- "Macoma balthica"
+sdir <- paste0("outputs/", gsub(" ", "_", spec))
+mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
+if(!dir.exists(sdir)){dir.create(sdir)}
+df <- filter(df, scien_name == spec | scien_name == "_absence") # Make sure to include absence records
+
+# Set absences to species name, absence = when count is 0
+df$scien_name[df$scien_name == "_absence"] <- spec
+
+# Calculate species count in each sample
+obs <- df %>%
+  group_by(group_id, scien_name) %>%
+  summarise(count = sum(quantity), lat = mean(start_lat), long = mean(start_long)) %>%
+  ungroup()
+```
+
+## Plot the points
+```{r}
+pres_obs <- obs[which(obs$count > 0),]
+
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+# Generate species distribution model
+## Import predictors/explanatory variables
+```{r}
+l <- list.files("../../../predictors/_predictor_stack_vif", full.names = T, pattern = "\\.tif$")
+preds <- rast(l)
+names(preds) <- tools::file_path_sans_ext(basename(l))
+
+# Remove categorical predictors for now
+cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+pred_keep <- setdiff(names(preds), cat_preds)
+preds <- preds[[pred_keep]]
+
+# Rescale predictors from 0 to 1 (if desired)
+#for(i in 1:nlyr(preds)){
+# v <- terra::values(preds[[i]])
+# v <- scales::rescale(v, to = c(0,1))
+# preds[[i]][] <- v
+# cat("\nPredictor layer", i , "rescaling done")
+#}
+
+# Optional: change to lower resolution to speed up processing
+# Aggregate by 4 changes 250m to 1km
+#preds <- aggregate(preds, fact = 4, fun = "mean")
+
+plot(preds)
+```
+
+## Change to presence/absence and convert to vector
+```{r}
+obs$count[which(obs$count > 0)] <- 1
+obs <- dplyr::select(obs, count, long, lat)
+obs <- vect(obs, geom = c("long", "lat"), crs="+proj=longlat +datum=WGS84")
+obs <- project(obs, crs(preds))
+
+# Determine predictor values at observation points
+obs <- extract(preds, obs, bind = T)
+
+# Remove observations with NAs in predictors
+obs <- obs[vec_detect_complete(as.data.frame(obs)), ]
+obs_df <- as.data.frame(obs)
+```
+
+## Generate the model
+```{r}
+dat <- sdmData(formula = count~., train = obs[,1], predictors = preds)
+dat
+mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt"), replicatin ='sub', test.percent = 30, n = 1)
+write.sdm(mod, mod_dir, overwrite = T)
+mod
+```
+
+## Import model (if necessary) and examine ROC curve
+```{r}
+mod <- read.sdm(mod_dir)
+roc(mod)
+```
+
+## Generate model predictions for each method
+```{r}
+p <- predict(mod, newdata = preds, parallelSetting = list(ncore = 8))
+plot(p)
+```
+
+## Generate ensemble predictions
+```{r}
+e <- ensemble(mod, newdata = p)
+temp <- project(e, "EPSG:3857", method = "near")
+temp <- aggregate(temp, fact = 5, fun = "max") # Decrease resolution for plotting
+plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
+```
+
+## Convert to presence/absence based on threshold
+```{r}
+presab <- pa(e, mod, id = "ensemble", opt = 5) # try opt = 9 also
+temp <- project(presab, "EPSG:3857", method = "near")
+temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
+```
+
+## Variable importance and response curves
+```{r}
+vi <- getVarImp(mod, id = "ensemble", wtest = "training")
+vi
+plot(vi, "auc")
+rcurve(mod, id = "ensemble")
+```
+
+## Modify according to thresholds (if desired)
+```{r}
+# Import depth
+dep <- preds[["depth_250m"]]
+
+# Here there are two options:
+# Option 1: Remove predictions from grid cells with a depth greater than
+# where the species has been observed OR
+# Option 2: Remove predictions from grid cells with a depth greater than
+# where sampling occurred (i.e. even if the species was absent)
+
+# Option 1
+depth_thresh <- max(obs_df$depth_250m[obs_df$count > 0], na.rm = TRUE)
+
+# Option 2
+#depth_thresh <- max(obs_df$depth_250m, na.rm = TRUE)
+
+# Implement depth threshold (if desired)
+e[dep > depth_thresh] <- 0; presab[dep > depth_thresh] <- 0
+
+# Plot
+temp <- project(e, "EPSG:3857", method = "near")
+temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
+
+temp <- project(presab, "EPSG:3857", method = "near")
+temp <- aggregate(temp, fact = 5, fun = "median") # Decrease resolution for plotting
+plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
+```
+
+## Export model predictions
+```{r}
+fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_probability.tif")
+writeRaster(e, fp, overwrite = TRUE)
+
+fp <- paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_pa.tif")
+writeRaster(presab, fp, overwrite = TRUE)
+```
+
+
+
