@@ -61,6 +61,13 @@ pcat <- c("substrate/outputs/biozone_resample_250m.tif",
           )
 ```
 
+# Save predictor list
+```{r}
+plist <- c(pcont, pcat)
+df <- data.frame(predictor = tools::file_path_sans_ext(basename(plist)),
+                 source_path = plist)
+write.csv(df, "predictor_list.csv", row.names = FALSE)
+```
 
 # Write to tif
 ```{r}
