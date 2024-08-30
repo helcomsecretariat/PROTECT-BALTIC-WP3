@@ -5,7 +5,6 @@ library(sdm)
 library(terra)
 library(scales)
 library(lubridate)
-library(leaflet)
 library(vctrs)
 
 if(!dir.exists("inputs")){dir.create("inputs")}
@@ -13,6 +12,7 @@ if(!dir.exists("outputs")){dir.create("outputs")}
 grid <- rast("../../../grid/outputs/grid_250m.tif")
 plot_agg <- 5 # Factor by which to decrease plotting resolution
 pred_agg <- 1 # Factor by which to decrease predictor resolution
+ncores <- 8 #Specify number of cores to use for parallel processing
 
 ## Install packages for ensemble modelling (if not already installled)
 #sdm::installAll(update = TRUE) # Install all modeling packages if not done already
@@ -28,7 +28,7 @@ spec_list <- c("Macoma balthica", "Scoloplos armiger", "Pygospio elegans",
                "Diastylis rathkei", "Tubificoides benedii")
 
 for(i in 1:length(spec_list)){
-#for(i in 1:5){
+#for(i in 9:9){
 
   # Import and filter observation data
   df <- read.csv("inputs/ICES_benthic_species_zoobenthos_23082024.csv", sep = "|")
@@ -114,17 +114,29 @@ for(i in 1:length(spec_list)){
   obs <- obs[vec_detect_complete(as.data.frame(obs)), ]
   obs_df <- as.data.frame(obs)
 
-
   ## Generate the model
   dat <- sdmData(formula = count~., train = obs[,1], predictors = preds)
   mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt"), replicatin ='sub', test.percent = 30, n = 1)
   write.sdm(mod, mod_dir, overwrite = T)
 
+  ## Save ROC curves
+  png(file = paste0(sdir, "/", gsub(" ", "_", spec), "_roc.tif"))
+  print(roc(mod))
+  dev.off()
+
+  ## Save variable importance
+  vi <- getVarImp(mod, id = "ensemble", wtest = "training")
+  temp <- vi@varImportance
+  temp$AUCtest <- temp$AUCtest * 100
+  temp$corTest <- temp$corTest * 100
+  write.csv(temp, paste0(sdir, "/", gsub(" ", "_", spec), "_var_importance.csv"), row.names = FALSE)
+
   ## Import model (if necessary) and examine ROC curve
   mod <- read.sdm(mod_dir)
 
   ## Generate model predictions for each method
-  p <- predict(mod, newdata = preds, parallelSetting = list(ncore = 24))
+  ### Initiate cluster
+  p <- predict(mod, newdata = preds, parallelSetting = list(ncore = ncores, method = "future", strategy = "data"))
 
   ## Generate ensemble predictions
   e <- ensemble(mod, newdata = p)

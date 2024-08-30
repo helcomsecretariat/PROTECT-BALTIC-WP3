@@ -152,18 +152,26 @@ mod
 ## Import model (if necessary) and examine ROC curve
 ```{r}
 mod <- read.sdm(mod_dir)
+
+png(file = paste0(sdir, "/", gsub(" ", "_", spec), "_roc.tif"))
 roc(mod)
+dev.off()
 ```
 
 ## Generate model predictions for each method
 ```{r}
-p <- predict(mod, newdata = preds, parallelSetting = list(ncore = 8))
-plot(p)
+ncores <- 8
+p <- predict(mod, newdata = preds, parallelSetting = list(ncore = ncores, method = "future", strategy = "data"))
+```
+
+```{r}
+#p <- predict(mod, newdata = preds, parallelSetting = list(ncore = 8))
+#plot(p)
 ```
 
 ## Generate ensemble predictions
 ```{r}
-e <- ensemble(mod, newdata = p)
+e <- ensemble(mod, newdata = p, setting=list(method='weighted', stat=c("AUC", "TSS")))
 temp <- project(e, "EPSG:3857", method = "near")
 if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
@@ -171,7 +179,7 @@ plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 
 ## Convert to presence/absence based on threshold
 ```{r}
-presab <- pa(e, mod, id = "ensemble", opt = 5) # try opt = 9 also
+presab <- pa(e, mod, id = "ensemble", opt = 2) # opt specifies the threshold method
 temp <- project(presab, "EPSG:3857", method = "near")
 if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
@@ -183,6 +191,10 @@ vi <- getVarImp(mod, id = "ensemble", wtest = "training")
 vi
 plot(vi, "auc")
 rcurve(mod, id = "ensemble")
+temp <- vi@varImportance
+temp$AUCtest <- temp$AUCtest * 100
+temp$corTest <- temp$corTest * 100
+write.csv(temp, paste0(sdir, "/", gsub(" ", "_", spec), "_var_importance.csv"), row.names = FALSE)
 ```
 
 ## Modify according to thresholds (if desired)
