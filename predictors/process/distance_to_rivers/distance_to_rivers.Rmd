@@ -4,10 +4,10 @@ title: "R Notebook"
 
 ```{r}
 library(terra)
-grid <- rast("../../grid/outputs/grid_250m.tif")
+grid <- rast("../../../grid/outputs/grid_250m.tif")
 if(!dir.exists("inputs")){dir.create("inputs")}
 if(!dir.exists("outputs")){dir.create("outputs")}
-source("../_functions/resint.R") # Script for resampling
+source("../../_functions/resint.R") # Script for resampling
 ```
 # Use cost distance to measure distance to rivers
 ```{r}

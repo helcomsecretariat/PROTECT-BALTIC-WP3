@@ -7,8 +7,8 @@ library(CopernicusMarine)
 library(terra)
 if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
 if(!dir.exists("outputs")){dir.create("outputs", recursive = TRUE)}
-source("../_functions/resint.R") # Script for resampling
-grid <- rast("../../grid/outputs/grid_250m.tif")
+source("../../_functions/resint.R") # Script for resampling
+grid <- rast("../../../grid/outputs/grid_250m.tif")
 ```
 
 # Pull data from Copernicus

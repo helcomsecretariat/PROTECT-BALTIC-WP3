@@ -9,7 +9,7 @@ library(terra)
 # Depth (as a positive number)
 ```{r}
 dep <- rast("inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
-grid <- rast("../../grid/outputs/grid_250m.tif")
+grid <- rast("../../../grid/outputs/grid_250m.tif")
 
 dep <- project(dep, grid)
 dep[is.na(grid)] <- NA

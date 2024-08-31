@@ -7,7 +7,7 @@ library(terra)
 library(dplyr)
 library(tidyr)
 library(purrr)
-grid <- rast("../../grid/outputs/grid_250m.tif")
+grid <- rast("../../../grid/outputs/grid_250m.tif")
 ```
 
 # Calculate total fishing hours each year per grid cell

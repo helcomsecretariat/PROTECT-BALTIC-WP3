@@ -7,8 +7,8 @@ library(terra)
 ```
 
 ```{r}
-dep <- rast("../bathymetry/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
-grid <- rast("../../grid/outputs/grid_250m.tif")
+dep <- rast("../depth/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
+grid <- rast("../../../grid/outputs/grid_250m.tif")
 dep <- project(dep, grid, method = "near")
 dep[dep >= 0] <- 99
 dep[dep < 0] <- 1

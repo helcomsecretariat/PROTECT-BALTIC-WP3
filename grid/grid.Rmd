@@ -12,7 +12,7 @@ grid <- rast(crs = crs(coast), extent = ext(coast), resolution = 250)
 grid <- rasterize(coast, grid)
 plot(grid)
 
-writeRaster(grid, "outputs/grid_250m.tif", datatype = "INT2U", overwrite = TRUE)
+writeRaster(grid, "outputs/grid_250m.tif", overwrite = TRUE)
 ```
 
 
