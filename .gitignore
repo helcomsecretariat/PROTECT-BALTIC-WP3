@@ -1,14 +1,14 @@
 # Ignore large input files
-predictors/fishing_effort/inputs/gfw/
-predictors/depth/inputs/BSBD_0.9.6_250m/
-predictors/substrate/inputs/EUSeaMap_2023_Biozone/
-predictors/substrate/inputs/HOLAS_BALANCE_Sediment/
+predictors/process/fishing_effort/inputs/gfw/
+predictors/process/depth/inputs/BSBD_0.9.6_250m/
+predictors/process/substrate/inputs/EUSeaMap_2023_Biozone/
+predictors/process/substrate/inputs/HOLAS_BALANCE_Sediment/
 
 # Ignore temporary directories
-predictors/temperature/inputs/temp/
-predictors/wave_exposure/inputs/temp/
-predictors/temperature/inputs/temp/
-predictors/salinity/inputs/temp/
+predictors/process/temperature/inputs/temp/
+predictors/process/wave_exposure/inputs/temp/
+predictors/process/temperature/inputs/temp/
+predictors/process/salinity/inputs/temp/
 
 # Ignore final predictor stack
 predictors/predictor_stack.tif
