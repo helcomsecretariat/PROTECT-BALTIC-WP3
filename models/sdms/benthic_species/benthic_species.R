@@ -28,7 +28,7 @@ spec_list <- c("Macoma balthica", "Scoloplos armiger", "Pygospio elegans",
                "Diastylis rathkei", "Tubificoides benedii")
 
 for(i in 1:length(spec_list)){
-#for(i in 9:9){
+#for(i in 1:5){
 
   # Import and filter observation data
   df <- read.csv("inputs/ICES_benthic_species_zoobenthos_23082024.csv", sep = "|")
@@ -84,10 +84,20 @@ for(i in 1:length(spec_list)){
   preds <- rast(l)
   names(preds) <- tools::file_path_sans_ext(basename(l))
 
-  # Remove categorical predictors for now
+  # Remove problematic characters from categorical predictor levels
   cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
-  pred_keep <- setdiff(names(preds), cat_preds)
-  preds <- preds[[pred_keep]]
+
+  for(i in 1:length(cat_preds)){
+    lvl <- levels(preds[[cat_preds[i]]])
+    lvl[[1]][,2] <- gsub("-", "_", lvl[[1]][,2])
+    lvl[[1]][,2] <- gsub(" ", "_", lvl[[1]][,2])
+    levels(preds[[cat_preds[i]]]) <- lvl
+  }
+
+  # Remove categorical predictors (if desired)
+  #cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+  #pred_keep <- setdiff(names(preds), cat_preds)
+  #preds <- preds[[pred_keep]]
 
   # Rescale predictors from 0 to 1 (if desired)
   #for(i in 1:nlyr(preds)){
@@ -131,6 +141,27 @@ for(i in 1:length(spec_list)){
   temp$corTest <- temp$corTest * 100
   write.csv(temp, paste0(sdir, "/", gsub(" ", "_", spec), "_var_importance.csv"), row.names = FALSE)
 
+  ## Save response curves
+  cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+  cont_preds <- setdiff(names(preds), cat_preds)
+  rc <- getResponseCurve(mod, id = "ensemble")
+  # Export categorical response curves
+  pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_factor_resp_curves.pdf"),
+      width = 6,
+      height = length(cat_preds)*6)
+  par(mfrow = c(length(cat_preds), 1), mar = c(12, 5, 5, 5))
+  for(i in 1:length(cat_preds)){
+    plot(rc@response[[cat_preds[i]]], ylim = c(0,1), las = 2, main = cat_preds[i],
+         xlab = "")
+  }
+  dev.off()
+  # Export continuous response curves
+  pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_cont_resp_curves.pdf"),
+      width = length(cont_preds)*3,
+      height = 3)
+  print(rcurve(mod, id = "ensemble", n = cont_preds))
+  dev.off()
+
   ## Import model (if necessary) and examine ROC curve
   mod <- read.sdm(mod_dir)
 
@@ -145,7 +176,6 @@ for(i in 1:length(spec_list)){
   presab <- pa(e, mod, id = "ensemble", opt = 5) # try opt = 9 also
 
   ## Modify according to thresholds (if desired)
-
   # Import depth
   dep <- preds[["depth_250m"]]
 

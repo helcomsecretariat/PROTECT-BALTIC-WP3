@@ -105,10 +105,20 @@ l <- list.files("../../../predictors/_predictor_stack_vif", full.names = T, patt
 preds <- rast(l)
 names(preds) <- tools::file_path_sans_ext(basename(l))
 
-# Remove categorical predictors for now
+# Remove problematic characters from categorical predictor levels
 cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
-pred_keep <- setdiff(names(preds), cat_preds)
-preds <- preds[[pred_keep]]
+
+for(i in 1:length(cat_preds)){
+  lvl <- levels(preds[[cat_preds[i]]])
+  lvl[[1]][,2] <- gsub("-", "_", lvl[[1]][,2])
+  lvl[[1]][,2] <- gsub(" ", "_", lvl[[1]][,2])
+  levels(preds[[cat_preds[i]]]) <- lvl
+}
+
+# Remove categorical predictors (if desired)
+#cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+#pred_keep <- setdiff(names(preds), cat_preds)
+#preds <- preds[[pred_keep]]
 
 # Rescale predictors from 0 to 1 (if desired)
 #for(i in 1:nlyr(preds)){
@@ -120,7 +130,7 @@ preds <- preds[[pred_keep]]
 
 # Optional: change to lower resolution to speed up processing
 # Aggregate by 4 changes 250m to 1km
-if(pred_agg > 1){preds <- aggregate(preds, fact = pred_agg, fun = "mean")}
+if(pred_agg > 1){preds <- aggregate(preds, fact = pred_agg, fun = "max")}
 
 plot(preds)
 ```
@@ -133,7 +143,7 @@ obs <- vect(obs, geom = c("long", "lat"), crs="+proj=longlat +datum=WGS84")
 obs <- project(obs, crs(preds))
 
 # Determine predictor values at observation points
-obs <- extract(preds, obs, bind = T)
+obs <- extract(preds, obs, bind = T, method = "simple")
 
 # Remove observations with NAs in predictors
 obs <- obs[vec_detect_complete(as.data.frame(obs)), ]
@@ -145,13 +155,13 @@ obs_df <- as.data.frame(obs)
 dat <- sdmData(formula = count~., train = obs[,1], predictors = preds)
 dat
 mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt"), replicatin ='sub', test.percent = 30, n = 1)
-write.sdm(mod, mod_dir, overwrite = T)
+#write.sdm(mod, mod_dir, overwrite = T)
 mod
 ```
 
 ## Import model (if necessary) and examine ROC curve
 ```{r}
-mod <- read.sdm(mod_dir)
+#mod <- read.sdm(mod_dir)
 
 png(file = paste0(sdir, "/", gsub(" ", "_", spec), "_roc.tif"))
 roc(mod)
@@ -190,12 +200,41 @@ plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
 vi <- getVarImp(mod, id = "ensemble", wtest = "training")
 vi
 plot(vi, "auc")
-rcurve(mod, id = "ensemble")
 temp <- vi@varImportance
 temp$AUCtest <- temp$AUCtest * 100
 temp$corTest <- temp$corTest * 100
 write.csv(temp, paste0(sdir, "/", gsub(" ", "_", spec), "_var_importance.csv"), row.names = FALSE)
 ```
+
+## Response curves
+```{r}
+cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+cont_preds <- setdiff(names(preds), cat_preds)
+
+rc <- getResponseCurve(mod, id = "ensemble")
+
+# Export categorical response curves
+pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_factor_resp_curves.pdf"),
+    width = 6,
+    height = length(cat_preds)*6)
+
+par(mfrow = c(length(cat_preds), 1), mar = c(12, 5, 5, 5))
+
+for(i in 1:length(cat_preds)){
+  plot(rc@response[[cat_preds[i]]], ylim = c(0,1), las = 2, main = cat_preds[i],
+       xlab = "")
+}
+
+dev.off()
+
+# Export continuous response curves
+pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_cont_resp_curves.pdf"),
+    width = length(cont_preds)*3,
+    height = 3)
+rcurve(mod, id = "ensemble", n = cont_preds)
+dev.off()
+```
+
 
 ## Modify according to thresholds (if desired)
 ```{r}
