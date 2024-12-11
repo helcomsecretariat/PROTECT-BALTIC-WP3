@@ -1,0 +1,7 @@
+"algo","cv_run","metric","calibration","validation","diff"
+"ensemble","RUN1","TSS",0.656,0.524,0.132
+"ensemble","RUN1","ROC",0.915,0.862,0.053
+"ensemble","RUN2","TSS",0.657,0.497,0.16
+"ensemble","RUN2","ROC",0.917,0.842,0.0750000000000001
+"ensemble","RUN3","TSS",0.648,0.544,0.104
+"ensemble","RUN3","ROC",0.913,0.869,0.044

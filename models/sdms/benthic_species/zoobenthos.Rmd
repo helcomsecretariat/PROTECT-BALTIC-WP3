@@ -16,8 +16,8 @@ library(vctrs)
 if(!dir.exists("inputs")){dir.create("inputs")}
 if(!dir.exists("outputs")){dir.create("outputs")}
 grid <- rast("../../../grid/outputs/grid_250m.tif")
-plot_agg <- 5 # Factor by which to decrease plotting resolution
-pred_agg <- 1 # Factor by which to decrease predictor resolution
+plot_agg <- 1 # Factor by which to decrease plotting resolution
+pred_agg <- 10 # Factor by which to decrease predictor resolution
 ```
 
 ## Install packages for ensemble modelling (if not already installled)
@@ -116,9 +116,9 @@ for(i in 1:length(cat_preds)){
 }
 
 # Remove categorical predictors (if desired)
-#cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
-#pred_keep <- setdiff(names(preds), cat_preds)
-#preds <- preds[[pred_keep]]
+cat_preds <- c("biozone_resample_250m", "sediment_resample_250m")
+pred_keep <- setdiff(names(preds), cat_preds)
+preds <- preds[[pred_keep]]
 
 # Rescale predictors from 0 to 1 (if desired)
 #for(i in 1:nlyr(preds)){
@@ -154,7 +154,8 @@ obs_df <- as.data.frame(obs)
 ```{r}
 dat <- sdmData(formula = count~., train = obs[,1], predictors = preds)
 dat
-mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt"), replicatin ='sub', test.percent = 30, n = 1)
+mod <- sdm(count~., data = dat, methods = c("svm", "brt", "gam", "glm", "rbf"), 
+           replicatin ='sub', test.percent = 30, n = 1)
 #write.sdm(mod, mod_dir, overwrite = T)
 mod
 ```
@@ -171,20 +172,32 @@ dev.off()
 ## Generate model predictions for each method
 ```{r}
 ncores <- 8
-p <- predict(mod, newdata = preds, parallelSetting = list(ncore = ncores, method = "future", strategy = "data"))
-```
 
-```{r}
-#p <- predict(mod, newdata = preds, parallelSetting = list(ncore = 8))
-#plot(p)
+# In parallel
+p <- predict(mod, newdata = preds, 
+             parallelSetting = list(ncore = ncores))
+
+# Non parallel
+#p <- predict(mod, newdata = preds)
+
+plot(p)
 ```
 
 ## Generate ensemble predictions
 ```{r}
-e <- ensemble(mod, newdata = p, setting=list(method='weighted', stat=c("AUC", "TSS")))
+e <- ensemble(mod, newdata = p, setting=list(method='weighted', stat="TSS"))
 temp <- project(e, "EPSG:3857", method = "near")
 if(plot_agg > 1){temp <- aggregate(temp, fact = plot_agg, fun = "max")} # Decrease resolution for plotting
 plet(temp, tiles=c("Esri.WorldImagery"), maxcell=ncell(temp))
+
+png(file = paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_map.png"),
+    width = 1800,
+    height = 2000,
+    units = "px",
+    pointsize = 8,
+    res = 300)
+terra::plot(e)
+dev.off()
 ```
 
 ## Convert to presence/absence based on threshold

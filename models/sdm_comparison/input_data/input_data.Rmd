@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+---
+
+```{r, include = FALSE}
+library(dplyr)
+library(sdm)
+library(terra)
+library(scales)
+library(lubridate)
+library(leaflet)
+library(vctrs)
+
+grid <- rast("../../../grid/outputs/grid_250m.tif")
+```
+
+# Import and filter observation data
+```{r}
+df <- read.csv("ICES_benthic_species_zoobenthos_23082024.csv", sep = "|")
+df$date <- ymd_hms(df$date)
+```
+
+## Assuming any samples where a species was not observed are absences.
+## i.e. that the sampling was recording all species present
+```{r}
+# Use only counts of individuals
+df <- filter(df, q_unit == "individuals")
+
+df <- df %>%
+  group_by(date, start_lat, start_long) %>%
+  reframe(scien_name = c(scien_name, "_absence"),
+          origin_id = c(origin_id, NA),
+          station_id = c(station_id, NA),
+          sample_id = c(sample_id, NA),
+          quantity = c(quantity, 0),
+          q_type = c(q_type, NA),
+          q_unit = c(q_unit, "individuals")
+          )
+
+df <- df %>%
+  group_by(date, start_lat, start_long) %>%
+  mutate(group_id = cur_group_id())
+
+df <- relocate(df, group_id)
+```
+
+# Specify species
+## Get number of presence records per species
+```{r}
+summary(as.factor(df$scien_name))
+```
+
+## Filter by species
+Macoma balthica
+Abra alba
+Marenzelleria neglecta
+Bathyporeia pilosa
+```{r}
+spec <- "Marenzelleria neglecta"
+#sdir <- paste0("outputs/", gsub(" ", "_", spec))
+#mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
+#if(!dir.exists(sdir)){dir.create(sdir)}
+df <- filter(df, scien_name == spec | scien_name == "_absence") # Make sure to include absence records
+
+# Set absences to species name, absence = when count is 0
+df$scien_name[df$scien_name == "_absence"] <- spec
+
+# Calculate species count in each sample
+obs <- df %>%
+  group_by(group_id, scien_name) %>%
+  summarise(count = sum(quantity), date = first(date), lat = mean(start_lat), long = mean(start_long)) %>%
+  ungroup()
+```
+
+## Plot the points
+```{r}
+pres_obs <- obs[which(obs$count > 0),]
+
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+## Import predictors/explanatory variables
+```{r}
+l <- list.files("predictors/", full.names = T, pattern = "\\.tif$")
+preds <- rast(l)
+names(preds) <- tools::file_path_sans_ext(basename(l))
+
+plot(preds)
+```
+
+## Change to presence/absence and convert to vector
+```{r}
+obs$count[which(obs$count > 0)] <- 1
+obs <- dplyr::select(obs, date, count, long, lat)
+obs_df <- obs
+obs <- vect(obs, geom = c("long", "lat"), crs="+proj=longlat +datum=WGS84")
+obs <- project(obs, crs(preds))
+
+# Determine predictor values at observation points
+obs <- extract(preds, obs, bind = T, method = "simple")
+obs$long <- obs_df$long
+obs$lat <- obs_df$lat
+
+# Remove observations with NAs in predictors
+obs <- obs[vec_detect_complete(as.data.frame(obs)), ]
+obs_preds <- as.data.frame(obs)
+obs_preds <- obs_preds %>% relocate(lat, .after = count)
+obs_preds <- obs_preds %>% relocate(long, .after = lat)
+```
+
+## Import pre-defined permutations?
+```{r}
+perms <- read.csv("permutations.csv")
+obs_preds <- cbind(obs_preds, perms)
+
+obs_preds <- obs_preds %>% relocate(train1, .after = long)
+obs_preds <- obs_preds %>% relocate(train2, .after = train1)
+obs_preds <- obs_preds %>% relocate(train3, .after = train2)
+write.csv(obs_preds, paste0("observations/", gsub(" ", "_", spec), "_observations.csv"), row.names = FALSE)
+```
+
+## Generate new permutations?
+```{r}
+# Generate permutations for training/testing
+n_train <- round(nrow(obs_preds)*0.8)
+obs_preds$train1 <- 0
+perm <- sample(nrow(obs_preds), n_train, replace = FALSE)
+obs_preds$train1[perm] <- 1
+
+obs_preds$train2 <- 0
+perm <- sample(nrow(obs_preds), n_train, replace = FALSE)
+obs_preds$train2[perm] <- 1
+
+obs_preds$train3 <- 0
+perm <- sample(nrow(obs_preds), n_train, replace = FALSE)
+obs_preds$train3[perm] <- 1
+
+obs_preds <- obs_preds %>% relocate(train1, .after = long)
+obs_preds <- obs_preds %>% relocate(train2, .after = train1)
+obs_preds <- obs_preds %>% relocate(train3, .after = train2)
+
+write.csv(obs_preds, paste0("observations/", gsub(" ", "_", spec), "_observations.csv"), row.names = FALSE)
+```
+
+

@@ -1,0 +1,465 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(dplyr)
+library(terra)
+library(biomod2)
+library(pROC)
+source("bm_ROC.R")
+
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
+grid <- rast("../../../grid/outputs/grid_250m.tif")
+start_time <- Sys.time()
+```
+
+## Settings
+## Species: "Abra alba", "Bathyporeia pilosa", "Macoma balthica", "Marenzelleria neglecta"
+```{r}
+spec <- "Bathyporeia pilosa"
+spec_ <- gsub(" ", "_", spec)
+mod_methods <- c("XGBOOST", "RF", "GBM")
+sdir <- paste0("outputs/", gsub(" ", "_", spec))
+if(!dir.exists(sdir)){dir.create(sdir)}
+
+mod_id <- as.character(sample(1:999999999, 1))
+resp_n <- paste0("temp", mod_id)
+proj_n <- "misc"
+```
+
+## Import observations
+```{r}
+#mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
+obs_dir <- paste0("../input_data/observations/", spec_, "_observations.csv")
+obs <- read.csv(obs_dir)
+train <- select(obs, train1, train2, train3)
+train_base <- train
+obs <- select(obs, count, long, lat)
+obs <- vect(obs, geom = c("long", "lat"), crs="+proj=longlat +datum=WGS84")
+obs <- project(obs, crs(grid))
+```
+
+## Import predictors
+```{r}
+l <- list.files("../input_data/predictors", full.names = T, pattern = "\\.tif$")
+preds <- rast(l)
+names(preds) <- tools::file_path_sans_ext(basename(l))
+
+# Aggregate predictors for faster testing
+preds <- aggregate(preds, fact = 5, fun = "max", na.rm = T)
+```
+
+## Prepare model
+```{r}
+dat <- BIOMOD_FormatingData(resp.var = obs,
+                            expl.var = preds,
+                            resp.name = resp_n,
+                            dir.name = "outputs")
+
+dat
+plot(dat)
+```
+
+## Specify training/testing
+```{r}
+colnames(train) <- c("_allData_RUN1", "_allData_RUN2", "_allData_RUN3")
+train <- train %>% mutate_all(~as.logical(.))
+mod_cv <- bm_CrossValidation(bm.format = dat,
+                             strategy = 'user.defined',
+                             user.table = train)
+```
+## Single models
+```{r}
+mod <- BIOMOD_Modeling(bm.format = dat,
+                       models = mod_methods,
+                       modeling.id = mod_id,
+                       CV.strategy = 'user.defined',
+                       CV.user.table = mod_cv,
+                       OPT.strategy = 'bigboss',
+                       var.import = 2,
+                       metric.eval = c('TSS','ROC'),
+                       do.progress = FALSE)
+```
+
+## Tuning (if desired)
+```{r}
+#OptionsBigboss@models
+#
+#opt.d <- bm_ModelingOptions(data.type = 'binary',
+#                            models = mod_methods,
+#                            strategy = 'bigboss')
+#
+#RF_tuned <- bm_Tuning(model = 'RF',
+#             tuning.fun = 'rf', ## see in ModelsTable
+#             do.formula = FALSE,
+#             bm.options = opt.d@options$RF.binary.randomForest.randomForest,
+#             bm.format = dat,
+#             calib.lines = get_calib_lines(mod))
+#
+#ANN_tuned <- bm_Tuning(model = 'ANN',
+#             tuning.fun = 'avNNet', ## see in ModelsTable
+#             do.formula = FALSE,
+#             bm.options = opt.d@options$ANN.binary.nnet.nnet,
+#             bm.format = dat,
+#             calib.lines = get_calib_lines(mod))
+```
+
+## Limited tuning
+```{r}
+#opt.d <- bm_ModelingOptions(data.type = 'binary',
+#                            models = mod_methods,
+#                            strategy = 'bigboss')
+#
+#XG_tuned <- bm_Tuning(model = 'XGBOOST',
+#                      tuning.fun = 'xgbTree', ## see in ModelsTable
+#                      do.formula = FALSE,
+#                      bm.options = opt.d@options$XGBOOST.binary.xgboost.xgboost,
+#                      params.train = list(XGBOOST.nrounds = c(10, 20, 50, 100),
+#                                          XGBOOST.max_depth = c(1, 6)),
+#                      bm.format = dat,
+#                      calib.lines = get_calib_lines(mod))
+#
+#ANN_tuned <- bm_Tuning(model = 'ANN',
+#                      tuning.fun = 'avNNet', ## see in ModelsTable
+#                      do.formula = FALSE,
+#                      bm.options = opt.d@options$ANN.binary.nnet.nnet,
+#                      params.train = list(ANN.size = c(2, 6, 8)),
+#                      bm.format = dat,
+#                      calib.lines = get_calib_lines(mod))
+```
+
+
+## Alter model parameters (if desired)
+```{r}
+opt.b <- bm_ModelingOptions(data.type = 'binary',
+                            models = mod_methods,
+                            strategy = 'bigboss')
+
+#user.RF <- list('_allData_allRun' = list(ntree = 250))
+#user.ANN <- list('_allData_allRun' = list(size = 16))
+#user.XGBOOST <- list('_allData_allRun' = list(nrounds = 10))
+
+user.RF <- vector("list", 3)
+names(user.RF) <- paste0("_allData_RUN", 1:3)
+user.RF <- lapply(user.RF, function(x) list(ntree = 250))
+
+user.ANN <- vector("list", 3)
+names(user.ANN) <- paste0("_allData_RUN", 1:3)
+user.ANN <- lapply(user.ANN, function(x) list(size = 6, decay = 0.2, maxit = 1000))
+
+user.XGBOOST <- vector("list", 3)
+names(user.XGBOOST) <- paste0("_allData_RUN", 1:3)
+user.XGBOOST <- lapply(user.XGBOOST, function(x) list(nrounds = 50))
+
+user_val <- list(RF.binary.randomForest.randomForest = user.RF,
+                 ANN.binary.nnet.nnet = user.ANN,
+                 XGBOOST.binary.xgboost.xgboost = user.XGBOOST)
+```
+
+
+```{r}
+user_opt <- bm_ModelingOptions(data.type = 'binary',
+                               models = mod_methods,
+                               strategy = "user.defined",
+                               user.val = user_val,
+                               user.base = "bigboss",
+                               bm.format = dat, 
+                               calib.lines = get_calib_lines(mod))
+
+mod_tuned <- BIOMOD_Modeling(bm.format = dat,
+                             modeling.id = paste0(mod_id, "_tuned"),
+                             models = mod_methods,
+                             CV.strategy = 'user.defined',
+                             CV.user.table = mod_cv,
+                             OPT.user = user_opt,
+                             metric.eval = c('TSS','ROC'),
+                             var.import = 2)
+```
+
+## Compare tuned and un-tuned models
+```{r}
+bm_PlotEvalMean(mod, do.plot = FALSE)
+bm_PlotEvalMean(mod_tuned, do.plot = FALSE)
+```
+
+## Plot ROC curves
+```{r}
+mod_select <- mod # Choose tuned or untuned model
+train <- get_calib_lines(mod_select)
+if(any(colnames(train) == "_allData_allRun")){
+  train <- train[ , -which(colnames(train) %in% c("_allData_allRun"))]
+}
+cv_runs <- ncol(train)
+
+# Export ROC curves
+pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_ROC_curves.pdf"),
+    width = cv_runs*3,
+    height = length(mod_methods)*3)
+
+bm_ROC(mod_select, mod_methods)
+dev.off()
+
+mod_select <- mod_tuned # Choose tuned or untuned model
+train <- get_calib_lines(mod_select)
+if(any(colnames(train) == "_allData_allRun")){
+  train <- train[ , -which(colnames(train) %in% c("_allData_allRun"))]
+}
+cv_runs <- ncol(train)
+
+# Export ROC curves
+pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_ROC_curves_tuned.pdf"),
+    width = cv_runs*3,
+    height = length(mod_methods)*3)
+
+bm_ROC(mod_select, mod_methods)
+dev.off()
+```
+
+## Select which model to use
+```{r}
+mod <- mod_tuned
+```
+
+## Performance
+```{r}
+# Export performance metrics
+mod_eval <- get_evaluations(mod)
+mod_eval <- mod_eval %>%
+  select(algo, run, metric.eval, calibration, validation)
+colnames(mod_eval) <- c("algo", "cv_run", "metric", "calibration", "validation")
+write.csv(mod_eval, paste0(sdir, "/", spec_, "_individial_model_performance.csv"), row.names = FALSE)
+
+png(file = paste0(sdir, "/", spec_, "_evaluation_plot.png"))
+bm_PlotEvalMean(mod)
+dev.off()
+```
+
+## Ensemble model
+```{r}
+emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
+                                models.chosen = 'all',
+                                em.by = 'PA+run',
+                                em.algo = c('EMwmean'),
+                                metric.select = c('ROC'),
+                                metric.select.thresh = c(0.7),
+                                metric.eval = c('TSS', 'ROC'),
+                                var.import = 2,
+                                EMci.alpha = 0.05,
+                                EMwmean.decay = 'proportional')
+```
+
+## Ensemble performance
+```{r}
+emod_eval <- get_evaluations(emod)
+emod_eval <- emod_eval %>%
+  select(algo, merged.by.run, metric.eval, calibration, validation)
+emod_eval$algo <- "ensemble"
+colnames(emod_eval) <- c("algo", "cv_run", "metric", "calibration", "validation")
+write.csv(emod_eval, paste0(sdir, "/", spec_, "_ensemble_model_performance.csv"), row.names = FALSE)
+
+# Tjur's R2
+true_obs <- as.logical(obs$count)
+
+tjur_df <- data.frame("algo" = "ensemble", "run" = paste0("RUN", 1:3), "tjurR2" = NA)
+
+for(i in 1:3){
+  r <- paste0("RUN", i)
+  emod_preds <- get_predictions(emod) %>%
+    filter(merged.by.run == r)
+  mt <- mean(emod_preds$pred[which(true_obs)])/1000
+  mf <- mean(emod_preds$pred[which(!true_obs)])/1000
+  
+  tjur_df$tjurR2[i] <- mt - mf 
+}
+
+write.csv(tjur_df, paste0(sdir, "/", spec_, "_ensemble_tjurR2.csv"), row.names = FALSE)
+```
+
+
+## Ensemble model ROC curves
+```{r}
+pdf(file = paste0(sdir, "/", gsub(" ", "_", spec), "_ensemble_ROC_curves.pdf"),
+    width = cv_runs*3,
+    height = 3)
+
+bm_ROC(mod, mod_methods, emod)
+dev.off()
+```
+
+
+## Response curves
+```{r}
+bm_plot <- bm_PlotResponseCurves(bm.out = emod, 
+                      models.chosen = get_built_models(emod),
+                      fixed.var = 'median',
+                      do.progress = FALSE,
+                      do.plot = FALSE)
+
+pdf(file = paste0(sdir, "/", spec_, "_response_curves.pdf"),
+    width = 20,
+    height = 20)
+
+bm_plot[["plot"]]
+
+dev.off()
+```
+
+## Predictions
+```{r}
+mod_proj <- BIOMOD_Projection(bm.mod = mod,
+                                  proj.name = proj_n,
+                                  new.env = preds,
+                                  models.chosen = 'all',
+                                  metric.binary = 'all',
+                                  metric.filter = 'all',
+                                  build.clamping.mask = T)
+
+plot(mod_proj)
+```
+
+```{r}
+emod_proj <- BIOMOD_EnsembleForecasting(bm.em = emod,
+                                        bm.proj = mod_proj,
+                                        models.chosen = 'all',
+                                        metric.binary = 'all',
+                                        metric.filter = 'all'
+                                        )
+plot(emod_proj)
+```
+
+## Export relevant files
+```{r}
+# Model files
+dir <- paste0("outputs/", spec_, "/models")
+if(!dir.exists(dir)){dir.create(dir)}
+mod_dir <- paste0("outputs/", resp_n, "/models/", mod_id)
+file.copy(list.files(mod_dir, full.names = T), dir, overwrite = TRUE)
+
+# Individual model projections
+mod_stack <- terra::unwrap(mod_proj@proj.out@val)
+n <- names(mod_stack)
+p <- paste0(resp_n, "_allData")
+n <- gsub(p, spec_, n)
+names(mod_stack) <- n
+dir <- paste0("outputs/", spec_, "/individual_projections")
+if(!dir.exists(dir)){dir.create(dir)}
+for(i in 1:nlyr(mod_stack)){
+  writeRaster(mod_stack[[i]], filename = paste0(dir, "/", names(mod_stack)[i], ".tif"), overwrite = T)
+}
+
+# Ensemble model projections
+mod_stack <- terra::unwrap(emod_proj@proj.out@val)
+n <- names(mod_stack)
+n <- gsub(resp_n, spec_, n)
+names(mod_stack) <- n
+dir <- paste0("outputs/", spec_, "/ensemble_projections")
+if(!dir.exists(dir)){dir.create(dir)}
+for(i in 1:nlyr(mod_stack)){
+  writeRaster(mod_stack[[i]], filename = paste0(dir, "/", names(mod_stack)[i], ".tif"), overwrite = T)
+}
+
+# Observations, CV set & predictions
+predictions <- get_predictions(emod, model.as.col = T, algo = 'EMwmean')
+obs <- read.csv(paste0("../input_data/observations/", spec_, "_observations.csv"))
+train <- select(obs, train1, train2, train3)
+pa_predictions <- predictions
+cut <- get_evaluations(emod, metric.eval = "TSS")
+
+for(i in 1:3){
+  pa_predictions[,i] <- ifelse(pa_predictions[,i] > cut$cutoff[i], 1, 0)
+}
+
+df <- data.frame("true_observation" = obs$count,
+                 "train1" = train$train1,
+                 "train2" = train$train2,
+                 "train3" = train$train3,
+                 "predictions_train1" = predictions[,1]/1000,
+                 "predictions_train2" = predictions[,2]/1000,
+                 "predictions_train3" = predictions[,3]/1000,
+                 "pa_predictions_train1" = pa_predictions[,1],
+                 "pa_predictions_train2" = pa_predictions[,2],
+                 "pa_predictions_train3" = pa_predictions[,3]
+                 )
+
+write.csv(obs, paste0("outputs/", spec_, "/", spec_, "_observations.csv"), row.names = F)
+write.csv(train, paste0("outputs/", spec_, "/", spec_, "_CVset.csv"), row.names = F)
+write.csv(df, paste0("outputs/", spec_, "/", spec_, "_predictions.csv"), row.names = F)
+
+# Record run time
+stop_time <- Sys.time()
+run_time <- difftime(stop_time, start_time, units = "hours")
+run_df <- data.frame(species = spec, run_time = run_time, models = paste(mod_methods, collapse = ","))
+write.csv(run_df, paste0(sdir, "/", spec_, "_run_time.csv"), row.names = FALSE)
+
+# Delete biomod2 created directory
+dir <- paste0("outputs/", resp_n)
+unlink(dir, recursive = T)
+```
+
+
+```{r}
+# Model files
+dir <- paste0("outputs/", spec_, "/models")
+if(!dir.exists(dir)){dir.create(dir)}
+mod_dir <- paste0("outputs/", resp_n, "/models/", mod_id)
+file.copy(list.files(mod_dir, full.names = T), dir, overwrite = TRUE)
+
+# Observations, CV set & predictions
+#obs <- get_formal_data(mod)@data.species
+#train <- get_calib_lines(mod)
+#predictions <- get_predictions(mod, model.as.col = T, algo = mod_methods)
+
+predictions <- get_predictions(emod, model.as.col = T, algo = 'EMwmean')
+obs <- read.csv(paste0("../input_data/observations/", spec_, "_observations.csv"))
+train <- select(obs, train1, train2, train3)
+pa_predictions <- predictions
+cut <- get_evaluations(emod, metric.eval = "TSS")
+
+for(i in 1:3){
+pa_predictions[,i] <- ifelse(pa_predictions[,i] > cut$cutoff[i], 1, 0)
+}
+
+df <- data.frame("true_observation" = obs$count,
+                 "train1" = train$train1,
+                 "train2" = train$train2,
+                 "train3" = train$train3,
+                 "predictions_train1" = predictions[,1]/1000,
+                 "predictions_train2" = predictions[,2]/1000,
+                 "predictions_train3" = predictions[,3]/1000,
+                 "pa_predictions_train1" = pa_predictions[,1],
+                 "pa_predictions_train2" = pa_predictions[,2],
+                 "pa_predictions_train3" = pa_predictions[,3]
+                 )
+
+write.csv(obs, paste0("outputs/", spec_, "/", spec_, "_observations.csv"), row.names = F)
+write.csv(train, paste0("outputs/", spec_, "/", spec_, "_CVset.csv"), row.names = F)
+write.csv(df, paste0("outputs/", spec_, "/", spec_, "_predictions.csv"), row.names = F)
+
+# Projections/full predictions
+dir <- paste0("outputs/", spec_, "/", spec_, "_single_proj.tif")
+mod_dir <- paste0("outputs/", resp_n, "/proj_", proj_n, "/proj_", proj_n, "_", resp_n, ".tif")
+file.copy(mod_dir, dir, overwrite = TRUE)
+
+dir <- paste0("outputs/", spec_, "/", spec_, "_ensemble_proj.tif")
+mod_dir <- paste0("outputs/", resp_n, "/proj_", proj_n, "/proj_", proj_n, "_", resp_n, "_ensemble.tif")
+file.copy(mod_dir, dir, overwrite = TRUE)
+
+# Record run time
+stop_time <- Sys.time()
+run_time <- difftime(stop_time, start_time, units = "hours")
+run_df <- data.frame(species = spec, run_time = run_time, models = paste(mod_methods, collapse = ","))
+write.csv(run_df, paste0(sdir, "/", spec_, "_run_time.csv"), row.names = FALSE)
+
+# Delete biomod2 created directory
+dir <- paste0("outputs/", resp_n)
+unlink(dir, recursive = T)
+```
+
+
+```{r}
+bm_ROC(mod, mod_methods, emod)
+```
+
+

@@ -27,8 +27,8 @@ spec_list <- c("Macoma balthica", "Scoloplos armiger", "Pygospio elegans",
                "Heteromastus filiformis", "Cerastoderma glaucum", "Bylgides sarsi",
                "Diastylis rathkei", "Tubificoides benedii")
 
-for(i in 1:length(spec_list)){
-#for(i in 1:5){
+#for(i in 1:length(spec_list)){
+for(i in 1:1){
 
   # Import and filter observation data
   df <- read.csv("inputs/ICES_benthic_species_zoobenthos_23082024.csv", sep = "|")
@@ -126,7 +126,8 @@ for(i in 1:length(spec_list)){
 
   ## Generate the model
   dat <- sdmData(formula = count~., train = obs[,1], predictors = preds)
-  mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt"), replicatin ='sub', test.percent = 30, n = 1)
+  mod <- sdm(count~., data = dat, methods = c("rf", "svm", "brt", "gam", "glm", "glmnet", "rbf", "mlp", "mars"),
+             replicatin ='sub', test.percent = 30, n = 1)
   write.sdm(mod, mod_dir, overwrite = T)
 
   ## Save ROC curves
@@ -167,10 +168,11 @@ for(i in 1:length(spec_list)){
 
   ## Generate model predictions for each method
   ### Initiate cluster
-  p <- predict(mod, newdata = preds, parallelSetting = list(ncore = ncores, method = "future", strategy = "data"))
+  #p <- predict(mod, newdata = preds, parallelSetting = list(ncore = ncores))
+  p <- predict(mod, newdata = preds)
 
   ## Generate ensemble predictions
-  e <- ensemble(mod, newdata = p)
+  e <- ensemble(mod, newdata = p, setting=list(method='weighted', stat=c("TSS")))
 
   ## Convert to presence/absence based on threshold
   presab <- pa(e, mod, id = "ensemble", opt = 5) # try opt = 9 also
