@@ -76,6 +76,27 @@ for(j in 2012:2020){
 # Summarise fishing data
 ## There appears to be some error of recording fishing when
 ## boats are likely anchored. We can optinally remove these cells
+### With apparent errors
+```{r}
+for(i in 2012:2020){
+  dat <- read.csv(paste0("inputs/gfw_sum/fleet-daily-csvs-100-v2-", i, "_sum.csv"))
+  dat <- select(dat, long, lat, fishing_hours)
+  #dat <- rem_errors(dat)
+  temp <- rast(dat, type = "xyz", crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+  temp <- project(temp, grid, method = "near")
+  temp <- temp * grid
+  names(temp) <- paste0(i)
+  writeRaster(temp, paste0("outputs/yearly_with_error/fishing_effort_", i, "_250m.tif"))
+  if(i == 2012){gfw <- temp} else {
+    gfw <- c(gfw, temp)
+  }
+}
+
+gfw_err <- gfw
+plot(gfw_err)
+```
+
+### With errors removed
 ```{r}
 rem_errors <- function(x){
   x$fishing_hours[which(x$lat == 56.92 & x$long == 12.35)] <- 0
@@ -95,6 +116,7 @@ for(i in 2012:2020){
   temp <- project(temp, grid, method = "near")
   temp <- temp * grid
   names(temp) <- paste0(i)
+  writeRaster(temp, paste0("outputs/yearly_error_removed/fishing_effort_", i, "_250m.tif"))
   if(i == 2012){gfw <- temp} else {
     gfw <- c(gfw, temp)
   }
@@ -102,13 +124,27 @@ for(i in 2012:2020){
 
 plot(gfw)
 ```
+
+
 # Mean fishing hours per year from 2012 to 2020
+## With error 
+```{r}
+gfw_mean <- app(gfw_err, fun = mean, na.rm = TRUE)
+gfw_mean[is.na(gfw_mean)] <- 0
+gfw_mean[is.na(grid)] <- NA
+
+writeRaster(gfw_mean, "outputs/fishing_effort_mean_with_error_250m.tif", overwrite = TRUE,
+            datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+plot(gfw_mean)
+```
+
+## With error removed
 ```{r}
 gfw_mean <- app(gfw, fun = mean, na.rm = TRUE)
 gfw_mean[is.na(gfw_mean)] <- 0
 gfw_mean[is.na(grid)] <- NA
 
-writeRaster(gfw_mean, "outputs/fishing_effort_mean_250m.tif", overwrite = TRUE,
+writeRaster(gfw_mean, "outputs/fishing_effort_mean_without_error_250m.tif", overwrite = TRUE,
             datatype = "INT2S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(gfw_mean)
 ```
