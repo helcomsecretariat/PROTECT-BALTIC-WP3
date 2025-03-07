@@ -17,6 +17,6 @@ cd[is.na(grid)] <- NA
 cd <- round(cd, digits = 0)
 
 writeRaster(cd, "outputs/distance_from_coast_250m.tif", overwrite = TRUE, 
-            datatype = "INT4U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(cd)
 ```

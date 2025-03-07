@@ -21,6 +21,6 @@ cd <- costDist(temp, target = 99)
 cd <- cd*grid
 
 writeRaster(cd, "outputs/distance_to_rivers_250m.tif", overwrite = TRUE, 
-            datatype = "INT4U", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 

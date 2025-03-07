@@ -1,9 +1,10 @@
 ---
 title: "R Notebook"
 ---
+# NOTE: Run cop_pull.py first to pull data from Copernicus
 
+# Load packages/functions
 ```{r}
-library(CopernicusMarine)
 library(terra)
 grid <- rast("../../../grid/outputs/grid_250m.tif")
 if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
@@ -11,100 +12,86 @@ if(!dir.exists("outputs")){dir.create("outputs")}
 source("../../_functions/resint.R") # Script for resampling
 ```
 
-# Pull data from Copernicus
-```{r}
-file_tibble <- cms_list_stac_files("BALTICSEA_MULTIYEAR_BGC_003_012", "cmems_mod_bal_bgc_my_P1M-m")
-```
-
-# Specify which years to download
-```{r}
-yrs <- c(2014, 2021)
-start <- which(grepl(pattern = paste0(yrs[1], "01.nc$"), file_tibble$current_path))
-stop <- which(grepl(pattern = paste0(yrs[2], "12.nc$"), file_tibble$current_path))
-
-file_tibble <- file_tibble[start:stop,]
-cms_download_stac(file_tibble, destination = "inputs/temp")
-```
-
-# Show available variables
-```{r}
-l <- list.files("inputs/temp", full.names = TRUE)
-r <- rast(l[1])
-names(r)
-```
-
-# oxygen at the surface mean
+# Oxygen at the surface mean
 ```{r}
 l <- list.files("inputs/temp", full.names = TRUE)
 
 for(i in 1:length(l)){
-  if(i == 1){r <- rast(l[i])[["o2_depth=0.50164622"]]} else {
-    r <- c(r, rast(l[i])[["o2_depth=0.50164622"]])
-  }
+  r <- rast(l[i])
+  n <- names(r)
+  n <- n[grepl("o2_depth=0.50164622", n, fixed = TRUE)]
+  r <- r[[n]]
+  r <- app(r, fun = "mean")
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
 }
 
-temp <- app(r, fun = mean)
+temp <- app(rst, fun = "mean")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/o2_surface_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
-## Resample to higher resolution
-temp <- app(r, fun = mean)
-temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
+# Resample to higher resolution
+temp <- app(rst, fun = "mean")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/o2_surface_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# oxygen at the surface standard deviation
+# Oxygen at the surface standard deviation
 ```{r}
-temp <- app(r, fun = sd)
+temp <- app(rst, fun = "sd")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/o2_surface_sd_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
-## Resample to higher resolution
-temp <- app(r, fun = sd)
-temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
+# Resample to higher resolution
+temp <- app(rst, fun = "sd")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/o2_surface_sd_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# oxygen at the bottom mean
+# Oxygen at the bottom mean
 ```{r}
 l <- list.files("inputs/temp", full.names = TRUE)
 
 for(i in 1:length(l)){
-  if(i == 1){r <- rast(l[i])[["o2b"]]} else {
-    r <- c(r, rast(l[i])[["o2b"]])
-  }
+  r <- rast(l[i])
+  n <- names(r)
+  n <- n[grepl("o2b_", n, fixed = TRUE)]
+  r <- r[[n]]
+  r <- app(r, fun = "mean")
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
 }
 
-temp <- app(r, fun = mean)
+temp <- app(rst, fun = "mean")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/o2_bottom_mean_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
-## Resample to higher resolution
-temp <- app(r, fun = mean)
-temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
+# Resample to higher resolution
+temp <- app(rst, fun = "mean")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/o2_bottom_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# oxygen at the bottom standard deviation
+# Oxygen at the bottom standard deviation
 ```{r}
-temp <- app(r, fun = sd)
+temp <- app(rst, fun = "sd")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 writeRaster(temp, "outputs/o2_bottom_sd_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
-## Resample to higher resolution
-temp <- app(r, fun = sd)
-temp_res <- resint(temp, grid, nit = 30, win_size = 3, method = "cubic")
+# Resample to higher resolution
+temp <- app(rst, fun = "sd")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/o2_bottom_sd_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```

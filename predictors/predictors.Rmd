@@ -5,9 +5,12 @@ title: "R Notebook"
 # Load packaged
 ```{r}
 library(terra)
+library(dplyr)
+library(corrplot)
 if(!dir.exists("_predictor_stack")){dir.create("_predictor_stack", recursive = TRUE)}
 if(!dir.exists("_predictor_stack_vif")){dir.create("_predictor_stack_vif", recursive = TRUE)}
 ```
+
 # Clear existing raster incase of errors
 ```{r}
 l <- list.files("_predictor_stack", full.names = TRUE)
@@ -121,4 +124,20 @@ for(i in 1:nlyr(preds)){
 }
 ```
 
+
+****************************
+# Explore correlations between predictors
+```{r}
+l <- list.files("_predictor_stack", full.names = TRUE)
+ls <- list.files("_predictor_stack", full.names = FALSE)
+
+preds <- rast(l)
+samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+m <- cor(samp)
+
+# Export image
+jpeg(filename = "correlation_plot.jpg", width=3000, height=3000, res=150)
+corrplot(m, method = "number")
+dev.off()
+```
 

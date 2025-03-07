@@ -1,0 +1,61 @@
+---
+title: "R Notebook"
+---
+# NOTE: Run cop_pull.py first to pull data from Copernicus
+
+# Load packages/functions
+```{r}
+library(terra)
+grid <- rast("../../../grid/outputs/grid_250m.tif")
+if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
+if(!dir.exists("outputs")){dir.create("outputs")}
+source("../../_functions/resint.R") # Script for resampling
+```
+
+# Ammonium at the surface mean
+```{r}
+l <- list.files("inputs/temp", full.names = TRUE)
+
+for(i in 1:length(l)){
+  r <- rast(l[i])
+  n <- names(r)
+  n <- n[grepl("depth=0.50164622", n, fixed = TRUE)]
+  r <- r[[n]]
+  r <- app(r, fun = "mean")
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
+}
+
+temp <- app(rst, fun = "mean")
+temp <- project(temp, grid, method = "near")
+temp <- temp*grid
+writeRaster(temp, "outputs/ammonium_surface_mean_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+
+# Resample to higher resolution
+temp <- app(rst, fun = "mean")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+writeRaster(temp_res, "outputs/ammonium_surface_mean_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+
+# Ammonium  at the surface standard deviation
+```{r}
+temp <- app(rst, fun = "sd")
+temp <- project(temp, grid, method = "near")
+temp <- temp*grid
+writeRaster(temp, "outputs/ammonium_surface_sd_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+
+# Resample to higher resolution
+temp <- app(rst, fun = "sd")
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+writeRaster(temp_res, "outputs/ammonium_surface_sd_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+
+# Remove netCDF files from disk
+```{r}
+l <- list.files("inputs/temp", full.names = TRUE)
+file.remove(l) 
+```
