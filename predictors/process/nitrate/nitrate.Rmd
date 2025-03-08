@@ -29,8 +29,8 @@ for(i in 1:length(l)){
 temp <- app(rst, fun = "mean")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-writeRaster(temp, "outputs/nitrate_surface_mean_250m.tif", overwrite = TRUE, 
-            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+#writeRaster(temp, "outputs/nitrate_surface_mean_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
+#            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 # Resample to higher resolution
 temp <- app(rst, fun = "mean")
@@ -44,8 +44,8 @@ writeRaster(temp_res, "outputs/nitrate_surface_mean_resample_250m.tif", overwrit
 temp <- app(rst, fun = "sd")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-writeRaster(temp, "outputs/nitrate_surface_sd_250m.tif", overwrite = TRUE, 
-            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+#writeRaster(temp, "outputs/nitrate_surface_sd_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
+#            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 
 # Resample to higher resolution
 temp <- app(rst, fun = "sd")

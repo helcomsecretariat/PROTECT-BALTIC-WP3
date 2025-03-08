@@ -128,16 +128,32 @@ for(i in 1:nlyr(preds)){
 ****************************
 # Explore correlations between predictors
 ```{r}
-l <- list.files("_predictor_stack", full.names = TRUE)
-ls <- list.files("_predictor_stack", full.names = FALSE)
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
+names(preds) <- n
 samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
 m <- cor(samp)
 
 # Export image
 jpeg(filename = "correlation_plot.jpg", width=3000, height=3000, res=150)
-corrplot(m, method = "number")
+corrplot(m, method = "circle", order = "AOE", diag = FALSE)
 dev.off()
 ```
 
+# Write full stack to single TIF file
+```{r}
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
+preds <- rast(l)
+names(preds) <- n
+
+writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
+            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
