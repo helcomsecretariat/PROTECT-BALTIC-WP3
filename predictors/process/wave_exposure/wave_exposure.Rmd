@@ -1,90 +1,86 @@
 ---
 title: "R Notebook"
 ---
+# NOTE: Run cop_pull.py first to pull data from Copernicus
 
+# Load packages/functions
 ```{r}
-library(CopernicusMarine)
 library(terra)
-if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
-if(!dir.exists("outputs")){dir.create("outputs", recursive = TRUE)}
-source("../../_functions/resint.R") # Script for resampling
 grid <- rast("../../../grid/outputs/grid_250m.tif")
+if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
+if(!dir.exists("outputs")){dir.create("outputs")}
+source("../../_functions/resint.R") # Script for resampling
+exnon <- FALSE # Export non-resampled rasters?
 ```
 
-# Pull data from Copernicus
-# Note the subsetting function for CopernicusMarine package is not
-# currently functional, so I have implemented a workaround
+# Summarise hourly data from Copernicus
+# This takes a long time, approx 12 hours
 ```{r}
-file_tibble <- cms_list_stac_files("BALTICSEA_REANALYSIS_WAV_003_015", "dataset-bal-reanalysis-wav-hourly")
-```
+l <- list.files("inputs/temp", full.names = TRUE)
 
-# Yearly sea surface wave significant height
-# WARNING: This will take a long time to run (up to a day)
-```{r}
-for(j in 2014:2023){
-
-  var <- "VHM0"
-  vnames <- paste0(var,"_", 1:24)
-  
-  #j <- 2021
-  start <- which(grepl(pattern = paste0(j, "010101.nc$"), file_tibble$current_path))
-  stop <- which(grepl(pattern = paste0(j, "123101.nc$"), file_tibble$current_path))
-  
-  file_sub <- file_tibble[start:stop,]
-  
-  wave <- rast()
-  file.remove(list.files("inputs/temp", full.names = TRUE))
-  
-  for(i in 1:nrow(file_sub)){
-  #for(i in 173:175){
-    f <- file_sub[i,]
-    cms_download_stac(f, destination = "inputs/temp", overwrite = TRUE, show_progress = FALSE)
-    f <- list.files("inputs/temp", full.names = TRUE, pattern = ".nc")
-    r <- rast(f)
-    r <- r[[vnames]]
-    r <- app(r, fun = mean, na.rm = TRUE)
-    names(r) <- paste0(i)
-    wave <- c(wave, r)
-    file.remove(f)
-    cat("\nIteration ", i, " complete")
-  }
-  
-  wave <- app(wave, fun = mean, na.rm = TRUE)
-  
-  if(!dir.exists("inputs/year_mean_daily_mean")){dir.create("inputs/year_mean_daily_mean", recursive = TRUE)}
-  fp <- paste0("inputs/year_mean_daily_mean/", var, "_year_mean_daily_mean_", j, ".tif")
-  writeRaster(wave, fp, overwrite = TRUE, 
-              datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-  cat("\nYear ", j, " complete")
+for(i in 1:length(l)){
+  r <- rast(l[i])
+  n <- names(r)
+  n <- n[grepl("VCMX_", n, fixed = TRUE)]
+  r <- r[[n]]
+  r <- app(r, fun = "mean", na.rm = TRUE)
+  writeRaster(r, paste0("inputs/VCMX_year_mean/VCMX_", i+2009, ".tif"), overwrite = TRUE)
 }
 ```
 
-# Mean wave significant height
 ```{r}
-l <- list.files("inputs/year_mean_daily_mean", full.names = TRUE)
+#l <- list.files("inputs/temp", full.names = TRUE)
+#
+#for(i in 1:length(l)){
+#  r <- rast(l[i])
+#  n <- names(r)
+#  n <- n[grepl("VHM0_", n, fixed = TRUE)]
+#  r <- r[[n]]
+#  r <- app(r, fun = "mean", na.rm = TRUE)
+#  writeRaster(r, paste0("inputs/VHM0_year_mean/VHM0_", i+2009, ".tif"), overwrite = TRUE)
+#}
+```
 
-wave <- rast(l)
-wave <- app(wave, fun = mean, na.rm = TRUE)
-writeRaster(wave, "outputs/wave_sig_height_mean_250m.tif", overwrite = TRUE, 
-            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+# Sea wave maximum height mean
+```{r}
+l <- list.files("inputs/VCMX_year_mean", full.names = TRUE)
+
+rst <- rast(l)
+temp <- app(rst, fun = "mean", na.rm = TRUE)
+temp <- project(temp, grid, method = "near")
+temp <- temp*grid
+if(exnon){
+  writeRaster(temp, "outputs/wave_max_height_mean_250m.tif", overwrite = TRUE, 
+              datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
 
 # Resample to higher resolution
-wave_res <- resint(wave, grid, nit = 50, win_size = 3, method = "cubic")
-writeRaster(wave_res, "outputs/wave_sig_height_mean_resample_250m.tif", overwrite = TRUE, 
+temp <- app(rst, fun = "mean", na.rm = TRUE)
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+writeRaster(temp_res, "outputs/wave_max_height_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# Standard deviation wave significant height
+# Sea wave maximum height standard deviation
 ```{r}
-l <- list.files("inputs/year_mean_daily_mean", full.names = TRUE)
-
-wave <- rast(l)
-wave <- app(wave, fun = sd, na.rm = TRUE)
-writeRaster(wave, "outputs/wave_sig_height_sd_250m.tif", overwrite = TRUE, 
-            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+temp <- app(rst, fun = "sd", na.rm = TRUE)
+temp <- project(temp, grid, method = "near")
+temp <- temp*grid
+if(exnon){
+  writeRaster(temp, "outputs/wave_max_height_sd_250m.tif", overwrite = TRUE,
+              datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
 
 # Resample to higher resolution
-wave_res <- resint(wave, grid, nit = 30, win_size = 3, method = "cubic")
-writeRaster(wave_res, "outputs/wave_sig_height_sd_resample_250m.tif", overwrite = TRUE, 
+temp <- app(rst, fun = "sd", na.rm = TRUE)
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+writeRaster(temp_res, "outputs/wave_max_height_sd_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
+
+# Remove netCDF files from disk
+```{r}
+l <- list.files("inputs/temp", full.names = TRUE)
+file.remove(l) 
+```
+

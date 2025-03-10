@@ -2,16 +2,18 @@
 title: "R Notebook"
 ---
 
-# Load packaged
+# Load packages
 ```{r}
 library(terra)
 library(dplyr)
 library(corrplot)
+library(usdm)
 if(!dir.exists("_predictor_stack")){dir.create("_predictor_stack", recursive = TRUE)}
 if(!dir.exists("_predictor_stack_vif")){dir.create("_predictor_stack_vif", recursive = TRUE)}
 ```
 
-# Clear existing raster incase of errors
+# Clear existing rasters incase of errors
+# WARNING: this will delete the previously exported predictors
 ```{r}
 l <- list.files("_predictor_stack", full.names = TRUE)
 file.remove(l)
@@ -20,118 +22,24 @@ l <- list.files("_predictor_stack_vif", full.names = TRUE)
 file.remove(l)
 ```
 
-# Specify predictors
-```{r}
-# Continuous predictors
-pcont <- c("process/depth/outputs/aspect_250m.tif",
-           "process/depth/outputs/bpi_500_5000_250m.tif",
-           "process/depth/outputs/bpi_4000_20000_250m.tif",
-           "process/depth/outputs/depth_250m.tif",
-           "process/depth/outputs/slope_250m.tif",
-           "process/distance_from_coast/outputs/distance_from_coast_250m.tif",
-           "process/fishing_effort/outputs/fishing_effort_mean_250m.tif",
-           "process/fishing_effort/outputs/fishing_effort_quantiles_250m.tif",
-           "process/temperature/outputs/summer_bottomT_mean_resample_250m.tif",
-           "process/temperature/outputs/summer_surfaceT_mean_resample_250m.tif",
-           "process/temperature/outputs/winter_bottomT_mean_resample_250m.tif",
-           "process/temperature/outputs/winter_surfaceT_mean_resample_250m.tif",
-           "process/temperature/outputs/year_round_bottomT_mean_resample_250m.tif",
-           "process/temperature/outputs/year_round_bottomT_sd_resample_250m.tif",
-           "process/temperature/outputs/year_round_surfaceT_mean_resample_250m.tif",
-           "process/temperature/outputs/year_round_surfaceT_sd_resample_250m.tif",
-           "process/salinity/outputs/bottom_salinity_mean_resample_250m.tif",
-           "process/salinity/outputs/surface_salinity_mean_resample_250m.tif",
-           "process/wave_exposure/outputs/wave_sig_height_mean_resample_250m.tif",
-           "process/wave_exposure/outputs/wave_sig_height_sd_resample_250m.tif",
-           "process/secchi_depth/outputs/secchi_depth_mean_resample_250m.tif",
-           "process/secchi_depth/outputs/secchi_depth_sd_resample_250m.tif",
-           "process/ph/outputs/ph_mean_resample_250m.tif",
-           "process/ph/outputs/ph_sd_resample_250m.tif",
-           "process/chloro_a/outputs/chloro_a_mean_resample_250m.tif",
-           "process/chloro_a/outputs/chloro_a_sd_resample_250m.tif",
-           "process/primary_productivity/outputs/primary_productivity_mean_resample_250m.tif",
-           "process/primary_productivity/outputs/primary_productivity_sd_resample_250m.tif",
-           "process/oxygen/outputs/o2_surface_mean_resample_250m.tif",
-           "process/oxygen/outputs/o2_surface_sd_resample_250m.tif",
-           "process/oxygen/outputs/o2_bottom_mean_resample_250m.tif",
-           "process/oxygen/outputs/o2_bottom_sd_resample_250m.tif",
-           "process/distance_to_rivers/outputs/distance_to_rivers_250m.tif"
-           )
-
-# Categorical predictors
-pcat <- c("process/substrate/outputs/biozone_resample_250m.tif",
-          "process/substrate/outputs/sediment_resample_250m.tif"
-          )
-```
-
 # Save predictor list
 ```{r}
-plist <- c(pcont, pcat)
-df <- data.frame(predictor = tools::file_path_sans_ext(basename(plist)),
-                 source_path = plist)
-write.csv(df, "predictor_list.csv", row.names = FALSE)
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
+
+df <- data.frame(predictor = n[order(n)])
+write.csv(df, "predictor_list.csv", row.names = FALSE) # Careful not to overwrite if metadata has been filled in
 ```
 
-# Write to tif
-```{r}
-plist <- c(pcont, pcat)
-preds <- rast(plist)
-names(preds) <- tools::file_path_sans_ext(basename(plist))
-
-writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
-            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-```
-
-# Save individual predictor layers in single folder
-```{r}
-plist <- c(pcont, pcat)
-preds <- rast(plist)
-names(preds) <- tools::file_path_sans_ext(basename(plist))
-
-for(i in 1:nlyr(preds)){
-  writeRaster(preds[[i]], paste0("_predictor_stack/", names(preds)[i], ".tif"), 
-              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-}
-```
-
-# Test for multicollinearity
-```{r}
-library(usdm)
-
-plist <- pcont
-preds <- rast(plist)
-names(preds) <- tools::file_path_sans_ext(basename(plist))
-
-samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
-viftest <- vifstep(samp, th = 10)
-viftest@excluded
-```
-
-# Save only VIF < 10 predictor layers as stack and in single folder
-```{r}
-preds <- preds[[viftest@results$Variables]]
-temp <- rast(pcat)
-names(temp) <- tools::file_path_sans_ext(basename(pcat))
-
-preds <- c(preds, temp)
-
-writeRaster(preds, "predictor_stack_vif.tif", overwrite = TRUE, 
-            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-
-for(i in 1:nlyr(preds)){
-  writeRaster(preds[[i]], paste0("_predictor_stack_vif/", names(preds)[i], ".tif"), 
-              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-}
-```
-
-
-****************************
 # Explore correlations between predictors
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
 l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+#l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
@@ -140,9 +48,54 @@ samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
 m <- cor(samp)
 
 # Export image
-jpeg(filename = "correlation_plot.jpg", width=3000, height=3000, res=150)
+jpeg(filename = "correlation_plot_with_SDs.jpg", width=3000, height=3000, res=150)
 corrplot(m, method = "circle", order = "AOE", diag = FALSE)
 dev.off()
+
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
+n <- tools::file_path_sans_ext(basename(l))
+
+preds <- rast(l)
+names(preds) <- n
+samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+m <- cor(samp)
+
+# Export image
+jpeg(filename = "correlation_plot_without_SDs.jpg", width=3000, height=3000, res=150)
+corrplot(m, method = "circle", order = "AOE", diag = FALSE)
+dev.off()
+```
+
+# Test for multicollinearity
+```{r}
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+#l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
+n <- tools::file_path_sans_ext(basename(l))
+
+preds <- rast(l)
+names(preds) <- n
+samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+vifs <- vif(samp)
+viftest <- vifstep(samp, th = 10)
+viftest@excluded
+```
+
+# Save VIF results
+```{r}
+df$vif_test_include <- "exclude"
+df$vif_test_include[df$predictor %in% viftest@results$Variables] <- "include"
+df <- left_join(df, vifs, by = join_by(predictor == Variables))
+vif_keep <- viftest@results
+colnames(vif_keep) <- c("predictor", "vif_test_10")
+df <- left_join(df, vif_keep, by = join_by(predictor == predictor))
+write.csv(df, "vif_test.csv", row.names = FALSE)
 ```
 
 # Write full stack to single TIF file
@@ -157,3 +110,19 @@ names(preds) <- n
 writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
             gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
+
+# Save individual predictor layers in single folder
+```{r}
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
+preds <- rast(l)
+names(preds) <- n
+
+for(i in 1:nlyr(preds)){
+  writeRaster(preds[[i]], paste0("_predictor_stack/", names(preds)[i], ".tif"), 
+              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
+```
+
