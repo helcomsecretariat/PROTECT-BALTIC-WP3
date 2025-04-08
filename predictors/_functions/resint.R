@@ -5,6 +5,14 @@
 # from which the mean values are taken in the moving window. It is best to
 # experiment with this value to see what works best.
 
+# source = the SpatRaster that you want to interpolate and extrapolate
+# grid = a template SpatRaster that you want to resample to
+# the grid should have values of 1 (or any non-NA value) 
+# where you want to extrapolate too and NA elsewhere
+
+# a win_size of 1 will never use neighbouring values separated by land
+# but you may use slightly higher values to get a smoother output
+
 
 resint <- function(source, grid, nit = 30, win_size = 2, method = "cubic"){
 

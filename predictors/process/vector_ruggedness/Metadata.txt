@@ -1,0 +1,9 @@
+Vector Ruggedness Measure (VRM) for varying search radius (cell, cell). 
+
+The layer was created in ArcGIS with 3 cells search radiua. 
+
+Based on:
+
+Hobson, R.D. 1972. Surface roughness in topography: quantitative approach. Pages 221-245 in R. J. Chorley, editor. Spatial analysis in geomorphology. Harper and Row, New York, New York, USA. 
+
+Sappington, J.M., K.M. Longshore, and D.B. Thomson. 2007. Quantifiying Landscape Ruggedness for Animal Habitat Anaysis: A case Study Using Bighorn Sheep in the Mojave Desert. Journal of Wildlife Management. 71(5): 1419 -1426.

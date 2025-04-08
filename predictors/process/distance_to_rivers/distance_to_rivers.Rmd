@@ -12,6 +12,7 @@ source("../../_functions/resint.R") # Script for resampling
 # Use cost distance to measure distance to rivers
 ```{r}
 riv <- vect("inputs/_ags_Rivers_1/Rivers_1.shp")
+riv <- project(riv, grid)
 temp <- grid
 values(temp) <- 1
 

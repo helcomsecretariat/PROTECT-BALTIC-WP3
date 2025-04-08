@@ -26,6 +26,9 @@ for(i in 1:length(l)){
   if(i > 1){rst <- c(rst, r)}
 }
 
+# Convert to celcius
+rst <- rst - 273.15
+
 temp <- app(rst, fun = "mean")
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
