@@ -48,7 +48,7 @@ samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
 m <- cor(samp)
 
 # Export image
-jpeg(filename = "correlation_plot_with_SDs.jpg", width=3000, height=3000, res=150)
+jpeg(filename = "correlation_plot_with_SDs.jpg", width=4000, height=4000, res=150)
 corrplot(m, method = "number", order = "AOE", diag = FALSE)
 dev.off()
 
