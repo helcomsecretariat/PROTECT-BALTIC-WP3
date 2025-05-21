@@ -23,9 +23,8 @@ models/sdm_comparison/input_data/ICES_benthic_species_zoobenthos_23082024.csv
 
 # Ignore archives and temp folders
 _archive/
-**/inputs/temp/
 temp/
-_sandbox/
+#_sandbox/
 
 # Ignore user files
 *.Rproj.user
