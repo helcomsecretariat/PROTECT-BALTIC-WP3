@@ -21,9 +21,11 @@ models/sdms/benthic_species/inputs/EE_benthic_species_observations_19062024.csv
 models/sdms/benthic_species/inputs/ICES_benthic_species_zoobenthos_23082024.csv
 models/sdm_comparison/input_data/ICES_benthic_species_zoobenthos_23082024.csv
 
-# Ignore archives
+# Ignore archives and temp folders
 _archive/
 **/inputs/temp/
+temp/
+_sandbox/
 
 # Ignore user files
 *.Rproj.user
