@@ -1,0 +1,173 @@
+Skipping file SE_fishes_species_obs_metadata_12092024.docx: Not supported file type
+Skipping file se_fish_species_analysis.txt: Not supported file type
+
+-------------------------------------------------------------------
+
+File name: SE_fish_species_obs_12092024.xlsx: 
+
+Number of rows: 822611
+Number of columns: 27
+
+Column names: ['origin_id', 'date_start', 'date_end', 'scien_name', 'life_stage', 'length', 'weight', 'quantity', 'q_unit', 'gear_type', 'fishing_a', 'soak_time_h', 'effort', 'start_lat', 'start_lon', 'end_lat', 'end_lon', 'time_utc', 'depth', 'temp_c', 'notes', 'citation', 'restr', 'restr_desc', 'station_id', 'effort_u', 'gear_code']
+
+Column data type: origin_id        int64
+date_start      object
+date_end       float64
+scien_name      object
+life_stage     float64
+length         float64
+weight         float64
+quantity       float64
+q_unit          object
+gear_type       object
+fishing_a      float64
+soak_time_h    float64
+effort         float64
+start_lat      float64
+start_lon      float64
+end_lat        float64
+end_lon        float64
+time_utc       float64
+depth          float64
+temp_c         float64
+notes          float64
+citation       float64
+restr           object
+restr_desc      object
+station_id     float64
+effort_u        object
+gear_code       object
+dtype: object
+
+Count of values per column:
+origin_id      822611
+date_start     822611
+date_end            0
+scien_name     822611
+life_stage          0
+length         770024
+weight              0
+quantity       822189
+q_unit         822611
+gear_type      822611
+fishing_a           0
+soak_time_h         0
+effort         821099
+start_lat      822611
+start_lon      822611
+end_lat             0
+end_lon             0
+time_utc            0
+depth          742373
+temp_c         775763
+notes               0
+citation            0
+restr          822611
+restr_desc     822611
+station_id     809454
+effort_u       822611
+gear_code      822611
+dtype: int64
+
+Count of Null (or NaN) values:
+origin_id           0
+date_start          0
+date_end       822611
+scien_name          0
+life_stage     822611
+length          52587
+weight         822611
+quantity          422
+q_unit              0
+gear_type           0
+fishing_a      822611
+soak_time_h    822611
+effort           1512
+start_lat           0
+start_lon           0
+end_lat        822611
+end_lon        822611
+time_utc       822611
+depth           80238
+temp_c          46848
+notes          822611
+citation       822611
+restr               0
+restr_desc          0
+station_id      13157
+effort_u            0
+gear_code           0
+dtype: int64
+
+
+Unique values in each columns:
+origin_id      50524
+date_start      1889
+date_end           0
+scien_name       123
+life_stage         0
+length           459
+weight             0
+quantity         276
+q_unit             1
+gear_type          3
+fishing_a          0
+soak_time_h        0
+effort            64
+start_lat       6159
+start_lon       6314
+end_lat            0
+end_lon            0
+time_utc           0
+depth            241
+temp_c           378
+notes              0
+citation           0
+restr              1
+restr_desc         1
+station_id      1102
+effort_u           2
+gear_code          3
+dtype: int64
+
+Missing data percentage per column:
+origin_id        0.000000
+date_start       0.000000
+date_end       100.000000
+scien_name       0.000000
+life_stage     100.000000
+length           6.392694
+weight         100.000000
+quantity         0.051300
+q_unit           0.000000
+gear_type        0.000000
+fishing_a      100.000000
+soak_time_h    100.000000
+effort           0.183805
+start_lat        0.000000
+start_lon        0.000000
+end_lat        100.000000
+end_lon        100.000000
+time_utc       100.000000
+depth            9.754064
+temp_c           5.695037
+notes          100.000000
+citation       100.000000
+restr            0.000000
+restr_desc       0.000000
+station_id       1.599419
+effort_u         0.000000
+gear_code        0.000000
+dtype: float64
+
+Number of duplicate rows: 0
+
+Latitude columns: ['start_lat']
+
+Longitude columns: ['start_lon']
+
+Latitude range: (55.32355, 65.86166)
+
+Longitude range: (10.94387, 23.75717)
+
+Skipping file SE_fish_species_obs_12092024_shapefile: Not supported file type

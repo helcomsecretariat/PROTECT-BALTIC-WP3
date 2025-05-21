@@ -1,0 +1,249 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(terra)
+library(biomod2)
+library(dplyr)
+library(tidyr)
+library(FNN)
+source("extract_near.R")
+
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
+grid <- rast("inputs/grid_250m.tif")
+```
+
+```{r}
+spec <- "Mytilus_edulis" # CHECK
+#spec <- "Fucus_spp"
+mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
+#mod_methods <- c("RF", "XGBOOST")
+mod_id <- as.character(sample(1:999999999, 1))
+resp_n <- paste0("temp", mod_id)
+proj_n <- "misc"
+
+spec_ <- gsub(" ", "_", spec)
+sdir <- paste0("outputs/", gsub(" ", "_", spec))
+if(!dir.exists(sdir)){dir.create(sdir)}
+```
+
+# Predictors
+```{r}
+l <- list.files("inputs/preds_myt", pattern = ".tif$", full.names = TRUE) # CHECK
+ls <- list.files("inputs/preds_myt", pattern = ".tif$", full.names = FALSE)
+
+preds <- rast(l)
+names(preds) <- tools::file_path_sans_ext(ls)
+```
+
+# Extract predictor data from nearest cells
+# for those falling outside the grid
+```{r}
+df <- readRDS("inputs/mytilus_pseudoabs.rds") # CHECK
+xy <- vect(df[, c("X", "Y")], geom=c("X", "Y"), crs=crs(grid))
+df_preds <- extract_near(grid, preds, xy)
+```
+
+## Prepare model
+```{r}
+dat <- BIOMOD_FormatingData(resp.var = df[,1],
+                            expl.var = df_preds,
+                            resp.name = resp_n,
+                            dir.name = "outputs",
+                            resp.xy = df[, c("X", "Y")])
+
+dat
+plot(dat)
+```
+
+# Custom model parameters
+```{r}
+opt.d <- bm_ModelingOptions(data.type = 'binary',
+                            models = mod_methods,
+                            strategy = 'bigboss')
+```
+
+# Single models - default settings
+## Single models
+```{r}
+mod <- BIOMOD_Modeling(bm.format = dat,
+                       models = mod_methods,
+                       modeling.id = mod_id,
+                       CV.strategy = 'kfold',
+                       #CV.strategy = 'random',
+                       CV.nb.rep = 1,
+                       #CV.perc = 0.8,
+                       CV.k = 5,
+                       OPT.strategy = 'bigboss',
+                       var.import = 1,
+                       metric.eval = c('TSS', 'ROC'),
+                       do.progress = FALSE)
+```
+
+# Model evaluation
+```{r}
+bm_plot <- bm_PlotEvalMean(mod, do.plot = FALSE)
+
+pdf(file = paste0(sdir, "/", spec_, "_evaluation.pdf"),
+    width = 8,
+    height = 8)
+bm_plot[["plot"]]
+dev.off()
+```
+
+## Ensemble model
+```{r}
+# Remove models with large calibration-validation differential (over-fitting)
+mod_eval <- get_evaluations(mod)
+mod_eval <- filter(mod_eval, is.na(validation) == FALSE)
+mod_eval <- filter(mod_eval, metric.eval == "TSS")
+mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
+mod_eval <- filter(mod_eval, overfit < 0.03)
+mod_select <- mod_eval$full.name
+```
+
+```{r}
+emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
+                                models.chosen = mod_select,
+                                em.by = 'all',
+                                em.algo = c('EMwmean', 'EMcv'),
+                                metric.select = c('ROC'),
+                                metric.select.thresh = c(0.7),
+                                metric.eval = c('TSS'),
+                                var.import = 1,
+                                EMci.alpha = 0.05,
+                                EMwmean.decay = 'proportional')
+```
+
+## Response curves
+```{r}
+bm_plot <- bm_PlotResponseCurves(bm.out = emod, 
+                                 models.chosen = get_built_models(emod)[1],
+                                 fixed.var = 'median',
+                                 do.progress = FALSE,
+                                 do.plot = FALSE)
+pdf(file = paste0(sdir, "/", spec_, "_response_curves.pdf"),
+    width = nlyr(preds)*0.7,
+    height = nlyr(preds)*0.6)
+bm_plot[["plot"]]
+dev.off()
+```
+
+# Variable importance
+```{r}
+bm_plot <- bm_PlotVarImpBoxplot(mod,
+                     group.by = c("algo", "expl.var", "expl.var"),
+                     do.plot = TRUE)
+
+pdf(file = paste0(sdir, "/", spec_, "_var_importance.pdf"),
+    width = nlyr(preds)*0.9,
+    height = nlyr(preds)*0.6)
+bm_plot[["plot"]]
+dev.off()
+```
+
+## Predictions
+```{r}
+mod_proj <- BIOMOD_Projection(bm.mod = mod,
+                                  proj.name = proj_n,
+                                  new.env = preds,
+                                  models.chosen = mod_select,
+                                  metric.binary = 'TSS',
+                                  build.clamping.mask = FALSE,
+                                  keep.in.memory = FALSE
+                              )
+
+plot(mod_proj)
+```
+
+```{r}
+emod_proj <- BIOMOD_EnsembleForecasting(bm.em = emod,
+                                        bm.proj = mod_proj,
+                                        models.chosen = 'all',
+                                        metric.binary = 'TSS',
+                                        do.stack = FALSE,
+                                        )
+plot(emod_proj)
+```
+
+# Save outputs
+```{r}
+# Individual model performance
+mod_eval <- get_evaluations(mod)
+mod_eval <- mod_eval %>%
+  select(algo, run, metric.eval, calibration, validation)
+colnames(mod_eval) <- c("algo", "cv_run", "metric", "calibration", "validation")
+mod_eval <- mod_eval[complete.cases(mod_eval),]
+mod_eval <- mod_eval %>%
+  group_by(algo, metric) %>%
+  summarise(calibration = mean(calibration),
+            validation = mean(validation)) %>%
+  ungroup()
+
+mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
+write.csv(mod_eval, paste0(sdir, "/", spec_, "_individial_model_performance.csv"), row.names = FALSE)
+
+# Ensemble model performance
+emod_eval <- get_evaluations(emod)
+emod_eval <- emod_eval %>%
+  select(algo, merged.by.run, metric.eval, calibration, validation)
+emod_eval$algo <- "ensemble"
+colnames(emod_eval) <- c("algo", "cv_run", "metric", "calibration", "validation")
+write.csv(emod_eval, paste0(sdir, "/", spec_, "_ensemble_model_performance.csv"), row.names = FALSE)
+
+# Model files
+dir <- paste0("outputs/", spec_, "/models")
+if(!dir.exists(dir)){dir.create(dir)}
+mod_dir <- paste0("outputs/", resp_n, "/models/", mod_id)
+file.copy(list.files(mod_dir, full.names = T), dir, overwrite = TRUE)
+
+# Individual model probabilities
+dir <- paste0("outputs/", resp_n, "/proj_", proj_n, "/", "proj_", proj_n, "_", resp_n, ".tif")
+if(!dir.exists(dir)){dir.create(dir)}
+fp <- paste0("outputs/", spec_, "/", spec_, "_individual_projections.tif")
+file.copy(dir, fp, overwrite = TRUE)
+
+# Ensemble probabilities
+#fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/", "proj_", proj_n, "_", resp_n, "_ensemble.tif")
+fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/individual_projections/", resp_n, "_EMwmeanByROC_mergedData_mergedRun_mergedAlgo.tif")
+#proj_ens <- rast(fp)[[1]]
+proj_ens <- rast(fp)
+proj_ens[proj_ens == 0] <- NA
+proj_ens <- proj_ens/1000
+dir <- paste0("outputs/", spec_, "/", spec_, "_ensemble_probabilities.tif")
+writeRaster(proj_ens, dir, overwrite = TRUE)
+
+# Binary model
+#fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/", "proj_", proj_n, "_", resp_n, "_ensemble_TSSbin.tif")
+fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/individual_projections/", resp_n, "_EMwmeanByROC_mergedData_mergedRun_mergedAlgo_TSSbin.tif")
+proj_bin <- rast(fp)
+proj_bin[proj_bin == 0] <- NA
+dir <- paste0("outputs/", spec_, "/", spec_, "_ensemble_binaryTSS.tif")
+writeRaster(proj_bin, dir, overwrite = TRUE)
+
+# Create delta-style model where only "presence" probabilities are included and are scales 0-1
+proj_delta <- proj_ens*proj_bin
+proj_delta[proj_delta == 0] <- NA
+proj_delta[] <- scales::rescale(proj_delta[], to = c(1, 1000))
+proj_delta <- proj_delta/1000
+dir <- paste0("outputs/", spec_, "/", spec_, "_ensemble_delta.tif")
+writeRaster(proj_delta, dir, overwrite = TRUE)
+
+# Uncertainty (coefficient of variation)
+#fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/", "proj_", proj_n, "_", resp_n, "_ensemble.tif")
+fp <- paste0("outputs/", resp_n, "/proj_", proj_n, "/individual_projections/", resp_n, "_EMcvByROC_mergedData_mergedRun_mergedAlgo.tif")
+#proj_cv <- rast(fp)[[2]]
+proj_cv <- rast(fp)
+proj_cv[proj_cv == 0] <- NA
+proj_cv <- proj_cv/1000
+dir <- paste0("outputs/", spec_, "/", spec_, "_ensemble_coeff_variation.tif")
+writeRaster(proj_cv, dir, overwrite = TRUE)
+```
+
+
+
+
+
+

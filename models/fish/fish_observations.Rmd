@@ -1,0 +1,297 @@
+---
+title: "R Notebook"
+---
+# Setup
+```{r}
+library(dplyr)
+library(tidyr)
+library(sdm)
+library(terra)
+library(scales)
+library(lubridate)
+library(leaflet)
+library(vctrs)
+library(rio)
+options(scipen = 999)
+
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
+grid <- rast("../../grid/outputs/grid_marine_250m.tif")
+spec_filter <- "Esox lucius"
+```
+
+# Import and filter observation data - ICES
+```{r}
+df <- read.csv("inputs/ICES/ICES_fish_and_decapod_species_obs_DATRAS_08112024.csv", sep = "|")
+
+# Rename columns to match
+df <- rename(df, 
+             date = date_start, 
+             lat = start_lat, 
+             long = start_long)
+
+df$date <- ymd(df$date)
+
+# Assume for a given sampling event, if a species is not observed, it is absent.
+# i.e. that the sampling was recording all species present in the dataset
+# Use only specific quantity types
+#df <- filter(df, q_unit == "individuals")
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  reframe(scien_name = c(scien_name, "_absence"),
+          origin_id = c(origin_id, NA),
+          quantity = c(quantity, 0),
+          quantity_unit = c(quantity_unit, NA),
+          gear_type = c(gear_type, NA)
+  )
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  mutate(group_id = cur_group_id()) %>%
+  relocate(group_id)
+
+# Get number of presence records per species
+summary(as.factor(df$scien_name))
+spec_list <- df %>% group_by(scien_name) %>% summarise(quantity = sum(quantity, na.rm = TRUE))
+spec_list$dataset <- "ICES"
+full_spec_list <- spec_list
+```
+
+# Filter by species
+```{r}
+spec <- spec_filter
+df_spec <- filter(df, scien_name == spec | scien_name == "_absence") # Make sure to include absence records
+
+# Set absences to species name, absence = when quantity is 0
+df_spec$scien_name[df_spec$scien_name == "_absence"] <- spec
+
+# Calculate species count in each sample
+obs <- df_spec %>%
+  group_by(group_id, scien_name) %>%
+  summarise(count = sum(quantity), lat = mean(lat), long = mean(long)) %>%
+  ungroup()
+
+# Convert to binary
+obs$count[obs$count > 0] <- 1
+obs_ICES <- obs
+obs_ICES$dataset <- "ICES"
+```
+
+# Plot points
+```{r}
+pres_obs <- obs[which(obs$count >= 0),]
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+# Import and filter observation data - Sweden
+```{r}
+df <- rio::import("inputs/SE/SE_fish_species_obs_12092024.xlsx")
+df <- as.data.frame(df)
+
+# Rename columns to match
+df <- rename(df, 
+             date = date_start, 
+             lat = start_lat, 
+             long = start_lon,
+             quantity_unit = q_unit)
+
+df$date <- ymd(df$date)
+
+# Assume for a given sampling event, if a species is not observed, it is absent.
+# i.e. that the sampling was recording all species present in the dataset
+# Use only specific quantity types
+#df <- filter(df, q_unit == "individuals")
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  reframe(scien_name = c(scien_name, "_absence"),
+          origin_id = c(origin_id, NA),
+          quantity = c(quantity, 0),
+          quantity_unit = c(quantity_unit, NA),
+          gear_type = c(gear_type, NA)
+  )
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  mutate(group_id = cur_group_id()) %>%
+  relocate(group_id)
+
+df$scien_name <- as.factor(df$scien_name)
+
+# Get number of presence records per species
+summary(as.factor(df$scien_name))
+spec_list <- df %>% group_by(scien_name) %>% summarise(quantity = sum(quantity, na.rm = TRUE))
+spec_list$dataset <- "Sweden gillnet"
+full_spec_list <- rbind(full_spec_list, spec_list)
+```
+
+# Filter by species
+```{r}
+spec <- spec_filter
+df_spec <- filter(df, scien_name == spec | scien_name == "_absence") # Make sure to include absence records
+
+# Set absences to species name, absence = when quantity is 0
+df_spec$scien_name[df_spec$scien_name == "_absence"] <- spec
+
+# Calculate species count in each sample
+obs <- df_spec %>%
+  group_by(group_id, scien_name) %>%
+  summarise(count = sum(quantity), lat = mean(lat), long = mean(long)) %>%
+  ungroup()
+
+# Convert to binary
+obs$count[obs$count > 0] <- 1
+obs_SE <- obs
+obs_SE$dataset <- "Sweden gillnet"
+obs_SE$group_id <- obs_SE$group_id + max(obs_ICES$group_id)
+```
+
+# Plot points
+```{r}
+pres_obs <- obs[which(obs$count >= 0),]
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+
+# Import and filter observation data - Finland
+```{r}
+df <- read.csv("inputs/FI/FI_fish_species_obs_Luke_gillnet_12092024.csv", sep = "|")
+#df <- read.csv("inputs/FI/FI_fish_species_obs_Luke_kalahavainnot.fi_12092024.csv", sep = "|")
+df <- filter(df, start_lat < 180) # Filter out bad coordinates
+df <- filter(df, start_lon < 180) # Filter out bad coordinates
+df <- as.data.frame(df)
+
+# Rename columns to match
+df <- rename(df, 
+             date = date_start, 
+             lat = start_lat, 
+             long = start_lon,
+             quantity_unit = q_unit)
+
+df$date <- dmy(df$date)
+
+# Assume for a given sampling event, if a species is not observed, it is absent.
+# i.e. that the sampling was recording all species present in the dataset
+# Use only specific quantity types
+#df <- filter(df, q_unit == "individuals")
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  reframe(scien_name = c(scien_name, "_absence"),
+          origin_id = c(origin_id, NA),
+          quantity = c(quantity, 0),
+          quantity_unit = c(quantity_unit, NA),
+          gear_type = c(gear_type, NA)
+  )
+
+df <- df %>%
+  group_by(date, lat, long) %>%
+  mutate(group_id = cur_group_id()) %>%
+  relocate(group_id)
+
+df$scien_name <- as.factor(df$scien_name)
+
+# Get number of presence records per species
+summary(as.factor(df$scien_name))
+spec_list <- df %>% group_by(scien_name) %>% summarise(quantity = sum(quantity, na.rm = TRUE))
+spec_list$dataset <- "Finland gillnet"
+full_spec_list <- rbind(full_spec_list, spec_list)
+```
+
+# Filter by species
+```{r}
+spec <- spec_filter
+df_spec <- filter(df, scien_name == spec | scien_name == "_absence") # Make sure to include absence records
+
+# Set absences to species name, absence = when quantity is 0
+df_spec$scien_name[df_spec$scien_name == "_absence"] <- spec
+
+# Calculate species count in each sample
+obs <- df_spec %>%
+  group_by(group_id, scien_name) %>%
+  summarise(count = sum(quantity), lat = mean(lat), long = mean(long)) %>%
+  ungroup()
+
+# Convert to binary
+obs$count[obs$count > 0] <- 1
+obs_FI <- obs
+obs_FI$dataset <- "Finland gillnet"
+obs_FI$group_id <- obs_FI$group_id + max(obs_SE$group_id)
+```
+
+# Plot points
+```{r}
+pres_obs <- obs[which(obs$count >= 0),]
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+*******************************************
+# Plot all datasets together
+```{r}
+obs <- rbind(obs_ICES, obs_SE, obs_FI)
+
+# Plot points
+pres_obs <- obs[which(obs$count >= 0),]
+palette <- colorNumeric(palette = "viridis", domain = pres_obs$count, reverse = TRUE)
+
+leaflet() %>%
+  addTiles() %>%
+  addCircleMarkers(data = as.data.frame(pres_obs),
+                   ~long, ~lat,
+                   color = ~palette(count),
+                   popup = ~paste("Count:", count),
+                   radius = 2,
+                   fillOpacity = 0.7) %>%
+  addLegend("bottomright", pal = palette, values = pres_obs$count,
+            title = "Count")
+```
+
+# Export species list
+```{r}
+full_spec_list$present <- 1
+spec_dat <- full_spec_list %>%
+  select(-quantity) %>%
+  pivot_wider(names_from = dataset, values_from = present)
+
+spec_dat[is.na(spec_dat)] <- 0
+
+spec_dat$number_datasets <- spec_dat$ICES + spec_dat$`Sweden gillnet` + spec_dat$`Finland gillnet`
+write.csv(spec_dat, "inputs/species_list_all_datasets.csv", row.names = FALSE)
+```
+
+
+

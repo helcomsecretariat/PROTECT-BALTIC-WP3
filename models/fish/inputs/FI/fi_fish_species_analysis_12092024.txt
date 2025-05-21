@@ -1,0 +1,369 @@
+-------------------------------------------------------------------
+
+File name: FI_fish_and_decapod_crustacean_species_obs_Luke_gillnet_20082024.csv: 
+
+Number of rows: 4211
+Number of columns: 30
+
+Column names: ['origin_id', 'date_start', 'date_end', 'scien_name', 'life_stage', 'length', 'weight', 'quantity', 'q_unit', 'gear_type', 'fishing_a', 'soak_time', 'effort', 'start_lat', 'start_lon', 'end_lat', 'end_long', 'time_utc', 'depth', 'temp_c', 'notes', 'citation', 'restr', 'restr_desc', 'dataset', 'place', 'species_fk', 'species_fi', 'count_qual', 'gear_other']
+
+Column data type: origin_id      object
+date_start     object
+date_end      float64
+scien_name     object
+life_stage     object
+length        float64
+weight        float64
+quantity        int64
+q_unit         object
+gear_type      object
+fishing_a     float64
+soak_time       int64
+effort        float64
+start_lat     float64
+start_lon     float64
+end_lat       float64
+end_long      float64
+time_utc      float64
+depth         float64
+temp_c        float64
+notes         float64
+citation      float64
+restr          object
+restr_desc     object
+dataset        object
+place          object
+species_fk    float64
+species_fi    float64
+count_qual    float64
+gear_other    float64
+dtype: object
+
+Count of values per column:
+origin_id     4211
+date_start    4211
+date_end         0
+scien_name    4211
+life_stage    4211
+length           0
+weight           0
+quantity      4211
+q_unit        4211
+gear_type     4211
+fishing_a        0
+soak_time     4211
+effort           0
+start_lat     4211
+start_lon     4211
+end_lat          0
+end_long         0
+time_utc         0
+depth            0
+temp_c           0
+notes            0
+citation         0
+restr         4211
+restr_desc    4211
+dataset       4211
+place         4211
+species_fk       0
+species_fi       0
+count_qual       0
+gear_other       0
+dtype: int64
+
+Count of Null (or NaN) values:
+origin_id        0
+date_start       0
+date_end      4211
+scien_name       0
+life_stage       0
+length        4211
+weight        4211
+quantity         0
+q_unit           0
+gear_type        0
+fishing_a     4211
+soak_time        0
+effort        4211
+start_lat        0
+start_lon        0
+end_lat       4211
+end_long      4211
+time_utc      4211
+depth         4211
+temp_c        4211
+notes         4211
+citation      4211
+restr            0
+restr_desc       0
+dataset          0
+place            0
+species_fk    4211
+species_fi    4211
+count_qual    4211
+gear_other    4211
+dtype: int64
+
+
+Unique values in each columns:
+origin_id     4211
+date_start      22
+date_end         0
+scien_name      50
+life_stage       2
+length           0
+weight           0
+quantity         1
+q_unit           1
+gear_type        1
+fishing_a        0
+soak_time        1
+effort           0
+start_lat       98
+start_lon       98
+end_lat          0
+end_long         0
+time_utc         0
+depth            0
+temp_c           0
+notes            0
+citation         0
+restr            1
+restr_desc       1
+dataset          1
+place           98
+species_fk       0
+species_fi       0
+count_qual       0
+gear_other       0
+dtype: int64
+
+Missing data percentage per column:
+origin_id       0.0
+date_start      0.0
+date_end      100.0
+scien_name      0.0
+life_stage      0.0
+length        100.0
+weight        100.0
+quantity        0.0
+q_unit          0.0
+gear_type       0.0
+fishing_a     100.0
+soak_time       0.0
+effort        100.0
+start_lat       0.0
+start_lon       0.0
+end_lat       100.0
+end_long      100.0
+time_utc      100.0
+depth         100.0
+temp_c        100.0
+notes         100.0
+citation      100.0
+restr           0.0
+restr_desc      0.0
+dataset         0.0
+place           0.0
+species_fk    100.0
+species_fi    100.0
+count_qual    100.0
+gear_other    100.0
+dtype: float64
+
+Number of duplicate rows: 0
+
+Latitude columns: ['start_lat']
+
+Longitude columns: ['start_lon']
+
+Latitude range: (59.81417, 63575.0)
+
+Longitude range: (21.1632, 21191.0)
+
+
+-------------------------------------------------------------------
+
+File name: FI_fish_and_decapod_crustacean_species_obs_Luke_kalahavainnot_20082024.csv: 
+
+Number of rows: 9302
+Number of columns: 30
+
+Column names: ['origin_id', 'date_start', 'date_end', 'scien_name', 'life_stage', 'length', 'weight', 'quantity', 'q_unit', 'gear_type', 'fishing_a', 'soak_time', 'effort', 'start_lat', 'start_lon', 'end_lat', 'end_long', 'time_utc', 'depth', 'temp_c', 'notes', 'citation', 'restr', 'restr_desc', 'dataset', 'place', 'species_fk', 'species_fi', 'count_qual', 'gear_other']
+
+Column data type: origin_id       int64
+date_start     object
+date_end      float64
+scien_name     object
+life_stage     object
+length        float64
+weight        float64
+quantity      float64
+q_unit         object
+gear_type      object
+fishing_a     float64
+soak_time     float64
+effort        float64
+start_lat     float64
+start_lon     float64
+end_lat       float64
+end_long      float64
+time_utc      float64
+depth         float64
+temp_c        float64
+notes         float64
+citation      float64
+restr         float64
+restr_desc    float64
+dataset        object
+place         float64
+species_fk      int64
+species_fi     object
+count_qual     object
+gear_other     object
+dtype: object
+
+Count of values per column:
+origin_id     9302
+date_start    9302
+date_end         0
+scien_name    9289
+life_stage    9302
+length        1475
+weight         277
+quantity      7638
+q_unit        7638
+gear_type     7988
+fishing_a        0
+soak_time        0
+effort           0
+start_lat     9302
+start_lon     9302
+end_lat          0
+end_long         0
+time_utc         0
+depth            0
+temp_c           0
+notes            0
+citation         0
+restr            0
+restr_desc       0
+dataset       9302
+place            0
+species_fk    9302
+species_fi    9302
+count_qual    9302
+gear_other     601
+dtype: int64
+
+Count of Null (or NaN) values:
+origin_id        0
+date_start       0
+date_end      9302
+scien_name      13
+life_stage       0
+length        7827
+weight        9025
+quantity      1664
+q_unit        1664
+gear_type     1314
+fishing_a     9302
+soak_time     9302
+effort        9302
+start_lat        0
+start_lon        0
+end_lat       9302
+end_long      9302
+time_utc      9302
+depth         9302
+temp_c        9302
+notes         9302
+citation      9302
+restr         9302
+restr_desc    9302
+dataset          0
+place         9302
+species_fk       0
+species_fi       0
+count_qual       0
+gear_other    8701
+dtype: int64
+
+
+Unique values in each columns:
+origin_id     9302
+date_start    1897
+date_end         0
+scien_name      81
+life_stage       4
+length         180
+weight         131
+quantity       220
+q_unit           1
+gear_type       13
+fishing_a        0
+soak_time        0
+effort           0
+start_lat     4911
+start_lon     4900
+end_lat          0
+end_long         0
+time_utc         0
+depth            0
+temp_c           0
+notes            0
+citation         0
+restr            0
+restr_desc       0
+dataset          1
+place            0
+species_fk      88
+species_fi      88
+count_qual       1
+gear_other      40
+dtype: int64
+
+Missing data percentage per column:
+origin_id       0.000000
+date_start      0.000000
+date_end      100.000000
+scien_name      0.139755
+life_stage      0.000000
+length         84.143195
+weight         97.022146
+quantity       17.888626
+q_unit         17.888626
+gear_type      14.125994
+fishing_a     100.000000
+soak_time     100.000000
+effort        100.000000
+start_lat       0.000000
+start_lon       0.000000
+end_lat       100.000000
+end_long      100.000000
+time_utc      100.000000
+depth         100.000000
+temp_c        100.000000
+notes         100.000000
+citation      100.000000
+restr         100.000000
+restr_desc    100.000000
+dataset         0.000000
+place         100.000000
+species_fk      0.000000
+species_fi      0.000000
+count_qual      0.000000
+gear_other     93.539024
+dtype: float64
+
+Number of duplicate rows: 0
+
+Latitude columns: ['start_lat']
+
+Longitude columns: ['start_lon']
+
+Latitude range: (59.4721978585471, 65.7899977900364)
+
+Longitude range: (19.1338764737308, 27.7776000000007)
+
