@@ -34,11 +34,10 @@ _sandbox/
 *.Ruserdata
 .Rproj.user
 
-# Ignore files over 100 MB
-./grid/inputs/FI_shoreline_14012021/official_edited_Meri10_14012021.shp
-./grid/inputs/WP3_grid_marine_polygon/WP3_grid_marine_polygon.shp
-./models/fish/inputs/ICES/ICES_fish_and_decapod_species_obs_DATRAS_08112024.csv
-./models/fish/inputs/ICES/ICES_original_file_CPUE per length per haul per hour.csv
-./models/fish/inputs/ICES_benthic_species_zoobenthos_23082024.csv
-./predictors/process/depth/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif
-./predictors/process/substrate/inputs/EUSeaMap_2023_Biozone/EUSeaMap_2023_Biozone.shp
+# Ignore files over 100 MBgrid/inputs/FI_shoreline_14012021/official_edited_Meri10_14012021.shp
+grid/inputs/WP3_grid_marine_polygon/WP3_grid_marine_polygon.shp
+models/fish/inputs/ICES/ICES_fish_and_decapod_species_obs_DATRAS_08112024.csv
+models/fish/inputs/ICES/ICES_original_file_CPUE per length per haul per hour.csv
+models/fish/inputs/ICES_benthic_species_zoobenthos_23082024.csv
+predictors/process/depth/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif
+predictors/process/substrate/inputs/EUSeaMap_2023_Biozone/EUSeaMap_2023_Biozone.shp
