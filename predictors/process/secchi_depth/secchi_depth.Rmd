@@ -1,15 +1,18 @@
 ---
 title: "R Notebook"
 ---
-# NOTE: Run cop_pull.py first to pull data from Copernicus
-
-# Load packages/functions
-```{r}
+# Load packages/functions/data
+```{r, include = FALSE}
 library(terra)
-grid <- rast("../../../grid/outputs/grid_250m.tif")
+grid <- rast("../../../grid/outputs/grid_marine_250m.tif")
 if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
 if(!dir.exists("outputs")){dir.create("outputs")}
 source("../../_functions/resint.R") # Script for resampling
+exnon <- FALSE # Export non-resampled rasters?
+
+# Download Copernicus data with python script
+# NOTE: Check cop_pull.py to ensure it is pulling relevant data 
+reticulate::source_python("cop_pull.py")
 ```
 
 # Secchi depth mean
@@ -26,31 +29,50 @@ for(i in 1:length(l)){
   if(i > 1){rst <- c(rst, r)}
 }
 
-temp <- app(rst, fun = "mean")
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-#writeRaster(temp, "outputs/secchi_depth_mean_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
-#            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+if(exnon){
+  writeRaster(temp, "outputs/secchi_depth_mean_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
+              datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
 
 # Resample to higher resolution
-temp <- app(rst, fun = "mean")
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
 writeRaster(temp_res, "outputs/secchi_depth_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# Secchi depth standard deviation
+# Secchi depth coefficient of variation
 ```{r}
-temp <- app(rst, fun = "sd")
+cv <- function(i) (sd(i, na.rm = TRUE)/mean(i, na.rm = TRUE))*100 # Coefficient of variation function
+
+l <- list.files("inputs/temp", full.names = TRUE)
+
+for(i in 1:length(l)){
+  r <- rast(l[i])
+  n <- names(r)
+  n <- n[grepl("zsd_", n, fixed = TRUE)]
+  r <- r[[n]]
+  r <- app(r, fun = cv)
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
+}
+
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
-#writeRaster(temp, "outputs/secchi_depth_sd_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
-#            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+if(exnon){
+  writeRaster(temp, "outputs/secchi_depth_cv_250m.tif", overwrite = TRUE, # Use to export non-resampled layer
+             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+}
 
 # Resample to higher resolution
-temp <- app(rst, fun = "sd")
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
-writeRaster(temp_res, "outputs/secchi_depth_sd_resample_250m.tif", overwrite = TRUE, 
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative SDs (impossible)
+writeRaster(temp_res, "outputs/secchi_depth_cv_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 

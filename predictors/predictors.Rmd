@@ -8,17 +8,17 @@ library(terra)
 library(dplyr)
 library(corrplot)
 library(usdm)
-if(!dir.exists("_predictor_stack")){dir.create("_predictor_stack", recursive = TRUE)}
-if(!dir.exists("_predictor_stack_vif")){dir.create("_predictor_stack_vif", recursive = TRUE)}
+if(!dir.exists("_predictor_stack_single")){dir.create("_predictor_single", recursive = TRUE)}
+if(!dir.exists("_predictor_stack_multi")){dir.create("_predictor_stack_multi", recursive = TRUE)}
 ```
 
 # Clear existing rasters incase of errors
 # WARNING: this will delete the previously exported predictors
 ```{r}
-l <- list.files("_predictor_stack", full.names = TRUE)
+l <- list.files("_predictor_stack_single", full.names = TRUE)
 file.remove(l)
 
-l <- list.files("_predictor_stack_vif", full.names = TRUE)
+l <- list.files("_predictor_stack_multi", full.names = TRUE)
 file.remove(l)
 ```
 
@@ -39,16 +39,16 @@ l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
 l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
-#l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
+#l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude CV layers?
 n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
 names(preds) <- n
-samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+samp <- spatSample(preds, size = 100, na.rm = TRUE, as.df = TRUE, exhaustive = TRUE)
 m <- cor(samp)
 
 # Export image
-jpeg(filename = "correlation_plot_with_SDs.jpg", width=4000, height=4000, res=150)
+jpeg(filename = "correlation_plot_with_CVs.jpg", width=4000, height=4000, res=150)
 corrplot(m, method = "number", order = "AOE", diag = FALSE)
 dev.off()
 
@@ -56,16 +56,16 @@ l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
 l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
-l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
+l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
 names(preds) <- n
-samp <- spatSample(preds, size = 100000, na.rm = TRUE, as.df = TRUE)
+samp <- spatSample(preds, size = 5000, na.rm = TRUE, as.df = TRUE)
 m <- cor(samp)
 
 # Export image
-jpeg(filename = "correlation_plot_without_SDs.jpg", width=3000, height=3000, res=150)
+jpeg(filename = "correlation_plot_without_CVs.jpg", width=3000, height=3000, res=150)
 corrplot(m, method = "number", order = "AOE", diag = FALSE)
 dev.off()
 ```
@@ -107,7 +107,7 @@ n <- tools::file_path_sans_ext(basename(l))
 preds <- rast(l)
 names(preds) <- n
 
-writeRaster(preds, "predictor_stack.tif", overwrite = TRUE, 
+writeRaster(preds, "_predictor_stack_multi/predictor_stack.tif", overwrite = TRUE, 
             gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
@@ -121,7 +121,7 @@ preds <- rast(l)
 names(preds) <- n
 
 for(i in 1:nlyr(preds)){
-  writeRaster(preds[[i]], paste0("_predictor_stack/", names(preds)[i], ".tif"), 
+  writeRaster(preds[[i]], paste0("_predictor_stack_single/", names(preds)[i], ".tif"), 
               overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 }
 ```

@@ -1,86 +1,84 @@
 ---
 title: "R Notebook"
 ---
-# NOTE: Run cop_pull.py first to pull data from Copernicus
-
-# Load packages/functions
-```{r}
+# Load packages/functions/data
+```{r, include = FALSE}
 library(terra)
-grid <- rast("../../../grid/outputs/grid_250m.tif")
+grid <- rast("../../../grid/outputs/grid_marine_250m.tif")
 if(!dir.exists("inputs/temp")){dir.create("inputs/temp", recursive = TRUE)}
 if(!dir.exists("outputs")){dir.create("outputs")}
 source("../../_functions/resint.R") # Script for resampling
 exnon <- FALSE # Export non-resampled rasters?
+
+# WARNING: THE WAVE EXPOSURE COPERNICUS DATA IS EXTREMELY LARGE
+# Download Copernicus data with python script
+# NOTE: Check cop_pull.py to ensure it is pulling relevant data 
+reticulate::source_python("cop_pull_monthly.py")
 ```
 
-# Summarise hourly data from Copernicus
-# This takes a long time, approx 12 hours
+# Sea wave significant height mean
 ```{r}
-l <- list.files("inputs/temp", full.names = TRUE)
+yrs <- 2010:2023
 
-for(i in 1:length(l)){
-  r <- rast(l[i])
-  n <- names(r)
-  n <- n[grepl("VCMX_", n, fixed = TRUE)]
-  r <- r[[n]]
-  r <- app(r, fun = "mean", na.rm = TRUE)
-  writeRaster(r, paste0("inputs/VCMX_year_mean/VCMX_", i+2009, ".tif"), overwrite = TRUE)
+for(i in 1:length(yrs)){
+  yr <- yrs[i]
+  l <- list.files(paste0("inputs/temp/", yr), full.names = TRUE)
+  r <- rast(l)
+  r <- app(r, fun = "mean")
+  names(r) <- yr
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
 }
-```
 
-```{r}
-#l <- list.files("inputs/temp", full.names = TRUE)
-#
-#for(i in 1:length(l)){
-#  r <- rast(l[i])
-#  n <- names(r)
-#  n <- n[grepl("VHM0_", n, fixed = TRUE)]
-#  r <- r[[n]]
-#  r <- app(r, fun = "mean", na.rm = TRUE)
-#  writeRaster(r, paste0("inputs/VHM0_year_mean/VHM0_", i+2009, ".tif"), overwrite = TRUE)
-#}
-```
-
-# Sea wave maximum height mean
-```{r}
-l <- list.files("inputs/VCMX_year_mean", full.names = TRUE)
-
-rst <- rast(l)
 temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 if(exnon){
-  writeRaster(temp, "outputs/wave_max_height_mean_250m.tif", overwrite = TRUE, 
+  writeRaster(temp, "outputs/wave_significant_height_mean_250m.tif", overwrite = TRUE, 
               datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 }
 
 # Resample to higher resolution
 temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
-writeRaster(temp_res, "outputs/wave_max_height_mean_resample_250m.tif", overwrite = TRUE, 
+writeRaster(temp_res, "outputs/wave_significant_height_mean_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
-# Sea wave maximum height standard deviation
+# Sea wave significant height coefficient of variation
 ```{r}
-temp <- app(rst, fun = "sd", na.rm = TRUE)
+cv <- function(i) (sd(i, na.rm = TRUE)/mean(i, na.rm = TRUE))*100 # Coefficient of variation function
+yrs <- 2010:2023
+
+for(i in 1:length(yrs)){
+  yr <- yrs[i]
+  l <- list.files(paste0("inputs/temp/", yr), full.names = TRUE)
+  r <- rast(l)
+  r <- app(r, fun = cv)
+  names(r) <- yr
+  if(i == 1){rst <- r}
+  if(i > 1){rst <- c(rst, r)}
+}
+
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp <- project(temp, grid, method = "near")
 temp <- temp*grid
 if(exnon){
-  writeRaster(temp, "outputs/wave_max_height_sd_250m.tif", overwrite = TRUE,
+  writeRaster(temp, "outputs/wave_significant_height_cv_250m.tif", overwrite = TRUE, 
               datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 }
 
 # Resample to higher resolution
-temp <- app(rst, fun = "sd", na.rm = TRUE)
+temp <- app(rst, fun = "mean", na.rm = TRUE)
 temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
-writeRaster(temp_res, "outputs/wave_max_height_sd_resample_250m.tif", overwrite = TRUE, 
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative SDs (impossible)
+writeRaster(temp_res, "outputs/wave_significant_height_cv_resample_250m.tif", overwrite = TRUE, 
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 ```
 
 # Remove netCDF files from disk
 ```{r}
 l <- list.files("inputs/temp", full.names = TRUE)
-file.remove(l) 
+unlink(l, recursive = TRUE) 
 ```
 

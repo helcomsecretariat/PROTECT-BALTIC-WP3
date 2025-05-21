@@ -4,12 +4,12 @@ title: "R Notebook"
 
 ```{r}
 library(terra)
+grid <- rast("../../../grid/outputs/grid_marine_250m.tif")
 ```
 
 # Depth (as a positive number)
 ```{r}
 dep <- rast("inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif")
-grid <- rast("../../../grid/outputs/grid_250m.tif")
 
 dep <- project(dep, grid)
 dep[is.na(grid)] <- NA
@@ -66,7 +66,9 @@ plot(bpi)
 # Slope
 ```{r}
 dep <- rast("outputs/depth_250m.tif")
+dep[is.na(dep)] <- 0
 slo <- terrain(dep, v = "slope", unit = "degrees", neighbors = 8)
+slo <- slo*grid
 
 writeRaster(slo, "outputs/slope_250m.tif", overwrite = TRUE,
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
@@ -76,7 +78,10 @@ plot(slo)
 # Aspect
 ```{r}
 dep <- rast("outputs/depth_250m.tif")
+dep[is.na(dep)] <- 0
 slo <- terrain(dep, v = "aspect", neighbors = 8)
+slo <- slo*grid
+
 writeRaster(slo, "outputs/aspect_250m.tif", overwrite = TRUE,
             datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
 plot(slo)
