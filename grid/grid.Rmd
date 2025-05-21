@@ -5,15 +5,15 @@ title: "R Notebook"
 ```{r}
 library(terra)
 
-coast <- vect("inputs/_ags_HELCOM_marine_area_2022_level1/HELCOM_marine_area_2022_level1.shp")
-coast <- project(coast, "EPSG:3067")
+coast <- vect("inputs/WP3_grid_marine_polygon/WP3_grid_marine_polygon.shp")
+coast <- project(coast, "EPSG:3035")
 plot(coast)
 
 grid <- rast(crs = crs(coast), extent = ext(coast), resolution = 250)
 grid <- rasterize(coast, grid, touches = TRUE)
 plot(grid)
 
-writeRaster(grid, "outputs/grid_250m.tif", overwrite = TRUE)
+writeRaster(grid, "outputs/grid_marine_250m.tif", overwrite = TRUE)
 ```
 
 
