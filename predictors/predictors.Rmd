@@ -26,6 +26,7 @@ file.remove(l)
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 n <- tools::file_path_sans_ext(basename(l))
 
@@ -37,14 +38,14 @@ write.csv(df, "predictor_list.csv", row.names = FALSE) # Careful not to overwrit
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
-l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 #l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude CV layers?
 n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
 names(preds) <- n
-samp <- spatSample(preds, size = 100, na.rm = TRUE, as.df = TRUE, exhaustive = TRUE)
+samp <- spatSample(preds, size = 5000, na.rm = TRUE, as.df = TRUE, exhaustive = TRUE)
 m <- cor(samp)
 
 # Export image
@@ -54,7 +55,7 @@ dev.off()
 
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
-l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
@@ -74,7 +75,7 @@ dev.off()
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
-l <- l[l != "process/substrate/outputs"] # Exclude categorical predictors
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 #l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
@@ -102,6 +103,7 @@ write.csv(df, "vif_test.csv", row.names = FALSE)
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 n <- tools::file_path_sans_ext(basename(l))
 preds <- rast(l)
@@ -115,6 +117,7 @@ writeRaster(preds, "_predictor_stack_multi/predictor_stack.tif", overwrite = TRU
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
+l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
 n <- tools::file_path_sans_ext(basename(l))
 preds <- rast(l)
