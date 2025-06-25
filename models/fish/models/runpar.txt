@@ -1,0 +1,23 @@
+@echo off
+setlocal enabledelayedexpansion
+
+set RSCRIPT="C:\Program Files\R\R-4.4.3\bin\Rscript.exe"
+set RSCRIPT_FILE="C:\Users\edse0001\OneDrive - Sveriges lantbruksuniversitet\pb_fish\models\ensemble.R"
+
+start "R Process" cmd /c "for /l %%i in (1,1,1) do (%RSCRIPT% %RSCRIPT_FILE% && echo Completed iteration %%i)"
+timeout /t 15 >nul
+
+start "R Process" cmd /c "for /l %%i in (1,1,1) do (%RSCRIPT% %RSCRIPT_FILE% && echo Completed iteration %%i)"
+timeout /t 15 >nul
+
+start "R Process" cmd /c "for /l %%i in (1,1,1) do (%RSCRIPT% %RSCRIPT_FILE% && echo Completed iteration %%i)"
+timeout /t 15 >nul
+
+start "R Process" cmd /c "for /l %%i in (1,1,1) do (%RSCRIPT% %RSCRIPT_FILE% && echo Completed iteration %%i)"
+
+
+rem Wait for all processes to complete
+:WaitLoop
+timeout /t 1 >nul
+tasklist | find "Rscript.exe" >nul && goto WaitLoop
+echo All R processes completed.
