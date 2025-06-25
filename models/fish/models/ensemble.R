@@ -1,6 +1,18 @@
-########## Setup ##########
+########## Info ##########
 # When installing biomod2, use install.packages("biomod2", dependencies = TRUE)
 # to make sure each of the different model packages are also installed
+
+########## Settings ##########
+mod_id <- "run3" # Unique ID for model runs
+run_name <- "Data from Sweden, Finland, Poland, Lithuania, Germany - no bottom trawls, all other gear types - absencences generated across all data - relevant predictors including CV"
+# Models to include in the ensemble
+#mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
+mod_methods <- c("RF", "XGBOOST") # Subset
+n_rep <- 1 # Number of cross-validation repetitions
+cv_perc <- 0.7 # Percentage of training/testing data
+
+########## Setup ##########
+# Packages
 setwd("C:/Users/edse0001/OneDrive - Sveriges lantbruksuniversitet/pb_fish/models") # For the batch script
 library(terra)
 library(biomod2)
@@ -8,29 +20,35 @@ library(caret)
 library(dplyr)
 library(tidyr)
 library(FNN)
-#library(cowplot)
+library(vroom)
+
 source("extract_near.R") # Function to extract raster values to point from nearest cell
 pdf(NULL)
 start_time <- Sys.time()
 
-# Create directories and specify grid
+# Create directories
 if(!dir.exists("outputs")){dir.create("outputs")} # Main outputs from biomod for use in the quarto document
 if(!dir.exists("outputs_extra")){dir.create("outputs_extra")} # Extra outputs for quick evaluation
-grid <- rast("../grid/outputs/grid_marine_250m_v2.tif")
+start_dir <- paste0("outputs_extra/", mod_id, "/_run_started")
+finish_dir <- paste0("outputs_extra/", mod_id, "/_run_finished")
+if(!dir.exists(start_dir)){dir.create(start_dir, recursive = TRUE)}
+if(!dir.exists(finish_dir)){dir.create(finish_dir, recursive = TRUE)}
 
 # Import species list
 spec_list <- read.csv("spec_list.csv")
+l <- list.files(start_dir)
+spec_list$run_initiated[spec_list$scientific_name %in% l] <- 1
 spec_miss <- spec_list %>%
   filter(run_initiated == 0) %>%
-  filter(quantity > 0)
+  filter(quantity > 200)
 
 spec <- first(spec_miss$scientific_name)
 spec_ <- gsub(" ", ".", spec)
-spec_list$run_initiated[spec_list$scientific_name == spec] <- 1 # Only include this when ready to start running parallel models
-write.csv(spec_list, "spec_list.csv", row.names = FALSE)
+write.csv(NA, paste0(start_dir, "/", spec)) # Record that run was initiated in _run_started folder
+spec_list$run_initiated[spec_list$scientific_name == spec] <- 1 
+#write.csv(spec_list, "spec_list.csv", row.names = FALSE)
 
 # Biomod file/folder names and creation of output folders
-mod_id <- "run2" # Unique ID for model runs
 resp_n <- gsub(" ", "_", spec)
 proj_n <- mod_id
 out_dir <- paste0("outputs/", mod_id)
@@ -38,16 +56,8 @@ if(!dir.exists(out_dir)){dir.create(out_dir, recursive = TRUE)}
 extra_dir <- paste0("outputs_extra/", mod_id, "/", spec_)
 if(!dir.exists(extra_dir)){dir.create(extra_dir, recursive = TRUE)}
 
-########## Settings ##########
-# Models to include in the ensemble
-#mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
-mod_methods <- c("RF", "XGBOOST", "GAM", "GBM", "CTA") # Subset
-n_rep <- 3 # Number of cross-validation repetitions
-cv_perc <- 0.7 # Percentage of training/testing data
-run_name <- "Swedish, Finnish, and Polish data - no bottom trawls, all other gear types - absencences generated across all data - relevant predictors including CV"
-
 ########## Observation data ########## (This part you will probably need to modify according to the species group/datasets)
-obs <- read.csv("../observations/outputs/observations_SE_FI_PO.csv")
+obs <- read.csv("../observations/outputs/observations_SE_FI_PO_LT_DE.csv")
 
 # Generate absences for all date/lat/long combinations
 obs <- obs %>%
@@ -76,7 +86,7 @@ obs <- obs %>%
 # E.g. if you only want to generate absences from the same country/dataset and the same gear type
 # you can create a new column that combines these two and replace dataset with that column
 
-obs$dataset <- "All" # If you do want to generate absences across all the data, uncomment this line
+obs$dataset <- "All" # Keep this line if you do want to generate absences across all the data
 obs_dataset <- unique(obs$dataset[obs$scientific_name == spec])
 
 obs <- obs %>%
@@ -98,6 +108,7 @@ obs <- obs %>%
 obs$quantity[obs$quantity > 0] <- 1
 
 ########## Predictors ##########
+grid <- rast("../grid/outputs/grid_marine_250m_v2.tif")
 l <- list.files("../predictors/predictor_stack_filter", pattern = ".tif$", full.names = TRUE)
 ls <- list.files("../predictors/predictor_stack_filter", pattern = ".tif$", full.names = FALSE)
 preds <- rast(l)
@@ -109,9 +120,19 @@ names(preds) <- tools::file_path_sans_ext(ls)
 # or you simply think it is a bad idea, then you can just run the normal terra::extract function
 xy <- vect(obs[, c("longitude", "latitude")], geom=c("longitude", "latitude"), crs = "EPSG:4326")
 xy <- project(xy, grid)
-
 df_preds <- extract_near(grid, preds, xy)
 
+# Presence/absence map export
+clrs <- ifelse(obs$quantity == 1, "red", "black")
+#temp_plot <- plot(xy, col = clrs, pch = 16, cex = 1.5)
+pdf(file = paste0(extra_dir, "/", spec_, "_point_map.pdf"),
+    width = 8,
+    height = 8)
+plot(grid, col = "lightgrey")
+plot(xy, col = clrs, pch = 16, cex = 0.3, add = TRUE)
+dev.off()
+
+########## Modeling ##########
 ## Prepare model
 dat <- BIOMOD_FormatingData(resp.var = obs$quantity,
                             expl.var = df_preds,
@@ -121,7 +142,6 @@ dat <- BIOMOD_FormatingData(resp.var = obs$quantity,
 
 dat
 
-########## Modeling ##########
 # Set training/testing data
 part <- createDataPartition(obs$quantity, times = n_rep, list = FALSE, p = cv_perc)
 calib <- matrix(nrow = length(obs$quantity), ncol = n_rep)
@@ -240,16 +260,22 @@ pdf(file = paste0(extra_dir, "/", spec_, "_ensemble_projections.pdf"),
 print(temp_plot)
 dev.off()
 
-# Record run time
+# Record run time and export run details
 end_time <- Sys.time()
 run_time <- as.numeric(difftime(end_time, start_time, units = "hours"))
 
-spec_list <- read.csv("spec_list.csv")
 spec_list$run_completed[spec_list$scientific_name == spec] <- 1
 spec_list$run_time[spec_list$scientific_name == spec] <- run_time
 spec_list$models[spec_list$scientific_name == spec] <- paste(mod_methods, collapse = ", ")
 spec_list$num_presence[spec_list$scientific_name == spec] <- nrow(obs[obs$quantity == 1, ])
 spec_list$num_absence[spec_list$scientific_name == spec] <- nrow(obs[obs$quantity == 0, ])
 spec_list$run_name[spec_list$scientific_name == spec] <- run_name
-write.csv(spec_list, "spec_list.csv", row.names = FALSE)
-write.csv(spec_list, paste0("outputs/", mod_id, "_details.csv"), row.names = FALSE)
+
+write.csv(spec_list[spec_list$scientific_name == spec,], paste0(finish_dir, "/", spec_, ".csv"), row.names = FALSE)
+ls <- list.files(start_dir, full.names = TRUE)
+lf <- list.files(finish_dir, full.names = TRUE)
+lf <- lf[!grepl("_details.csv", lf, fixed = TRUE)]
+if(length(ls) == length(lf)){
+  spec_finish <- vroom(lf)
+  write.csv(spec_finish, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
+}
