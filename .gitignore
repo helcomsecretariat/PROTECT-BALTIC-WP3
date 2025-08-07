@@ -1,42 +1,13 @@
-# Ignore large input files
-predictors/process/fishing_effort/inputs/gfw/
-predictors/process/depth/inputs/BSBD_0.9.6_250m/
-predictors/process/substrate/inputs/EUSeaMap_2023_Biozone/
-predictors/process/substrate/inputs/HOLAS_BALANCE_Sediment/
+# Ignore everything
+*
 
-# Ignore temporary directories
-predictors/process/temperature/inputs/temp/
-predictors/process/wave_exposure/inputs/temp/
-predictors/process/temperature/inputs/temp/
-predictors/process/salinity/inputs/temp/
+# Don't ignore
+!*.R
+!*.Rmd
+!*.py
 
-# Ignore final predictor stack
-predictors/predictor_stack.tif
-predictors/predictor_stack.tif.aux.xml
-predictors/predictor_stack_vif.tif
-predictors/predictor_stack_vif.tif.aux.xml
+# Don't ignore directories
+!*/
 
-# Ignore large observation data
-models/sdms/benthic_species/inputs/EE_benthic_species_observations_19062024.csv
-models/sdms/benthic_species/inputs/ICES_benthic_species_zoobenthos_23082024.csv
-models/sdm_comparison/input_data/ICES_benthic_species_zoobenthos_23082024.csv
-
-# Ignore archives and temp folders
-_archive/
-temp/
-#_sandbox/
-
-# Ignore user files
-*.Rproj.user
-*.Rhistory
-*.RData
-*.Ruserdata
-.Rproj.user
-
-# Ignore files over 100 MBgrid/inputs/FI_shoreline_14012021/official_edited_Meri10_14012021.shp
-grid/inputs/WP3_grid_marine_polygon/WP3_grid_marine_polygon.shp
-models/fish/inputs/ICES/ICES_fish_and_decapod_species_obs_DATRAS_08112024.csv
-models/fish/inputs/ICES/ICES_original_file_CPUE per length per haul per hour.csv
-models/fish/inputs/ICES_benthic_species_zoobenthos_23082024.csv
-predictors/process/depth/inputs/BSBD_0.9.6_250m/BSBD_0.9.6_250m.tif
-predictors/process/substrate/inputs/EUSeaMap_2023_Biozone/EUSeaMap_2023_Biozone.shp
+# Ignore hidden files
+.* 
