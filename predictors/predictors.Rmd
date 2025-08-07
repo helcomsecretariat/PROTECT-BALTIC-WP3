@@ -8,6 +8,7 @@ library(terra)
 library(dplyr)
 library(corrplot)
 library(usdm)
+grid <- rast("../grid/outputs/grid_marine_250m_v2.tif")
 if(!dir.exists("_predictor_stack_single")){dir.create("_predictor_single", recursive = TRUE)}
 if(!dir.exists("_predictor_stack_multi")){dir.create("_predictor_stack_multi", recursive = TRUE)}
 ```
@@ -34,12 +35,47 @@ df <- data.frame(predictor = n[order(n)])
 write.csv(df, "predictor_list.csv", row.names = FALSE) # Careful not to overwrite if metadata has been filled in
 ```
 
-# Explore correlations between predictors
+# Write full stack to single TIF file
 ```{r}
 l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
 l <- l[basename(l) == "outputs"]
 l <- l[!grepl("_archive", l, fixed = TRUE)]
 l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
+preds <- rast(l)
+names(preds) <- n
+preds <- preds*grid
+
+#preds <- rast(preds, datatype = "FLT4S") # Change all bands to floating point?
+
+writeRaster(preds, "_predictor_stack_multi/predictor_stack.tif", overwrite = TRUE, 
+            gdal=c("COMPRESS=LZW", "PREDICTOR=2"))
+```
+
+# Save individual predictor layers in single folder
+```{r}
+l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
+l <- l[basename(l) == "outputs"]
+l <- l[!grepl("_archive", l, fixed = TRUE)]
+l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+n <- tools::file_path_sans_ext(basename(l))
+preds <- rast(l)
+names(preds) <- n
+preds <- preds*grid
+
+#preds <- rast(preds, datatype = "FLT4S") # Change all bands to floating point?
+
+for(i in 1:nlyr(preds)){
+  writeRaster(preds[[i]], paste0("_predictor_stack_single/", names(preds)[i], ".tif"), 
+              overwrite = TRUE, gdal=c("COMPRESS=LZW", "PREDICTOR=2"))
+}
+```
+
+########## BREAK ###########
+
+# Explore correlations between predictors
+```{r}
+l <- list.files("_predictor_stack_single", pattern = "\\.tif$", full.names = TRUE)
 #l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude CV layers?
 n <- tools::file_path_sans_ext(basename(l))
 
@@ -53,10 +89,7 @@ jpeg(filename = "correlation_plot_with_CVs.jpg", width=4000, height=4000, res=15
 corrplot(m, method = "number", order = "AOE", diag = FALSE)
 dev.off()
 
-l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
-l <- l[basename(l) == "outputs"]
-l <- l[!grepl("_archive", l, fixed = TRUE)]
-l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
+l <- list.files("_predictor_stack_single", pattern = "\\.tif$", full.names = TRUE)
 l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
 
@@ -73,11 +106,8 @@ dev.off()
 
 # Test for multicollinearity
 ```{r}
-l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
-l <- l[basename(l) == "outputs"]
-l <- l[!grepl("_archive", l, fixed = TRUE)]
-l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
-#l <- l[!grepl("_sd_", l, fixed = TRUE)] # Exclude SD layers?
+l <- list.files("_predictor_stack_single", pattern = "\\.tif$", full.names = TRUE)
+#l <- l[!grepl("_cv_", l, fixed = TRUE)] # Exclude SD layers?
 n <- tools::file_path_sans_ext(basename(l))
 
 preds <- rast(l)
@@ -99,33 +129,4 @@ df <- left_join(df, vif_keep, by = join_by(predictor == predictor))
 write.csv(df, "vif_test.csv", row.names = FALSE)
 ```
 
-# Write full stack to single TIF file
-```{r}
-l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
-l <- l[basename(l) == "outputs"]
-l <- l[!grepl("_archive", l, fixed = TRUE)]
-l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
-n <- tools::file_path_sans_ext(basename(l))
-preds <- rast(l)
-names(preds) <- n
-
-writeRaster(preds, "_predictor_stack_multi/predictor_stack.tif", overwrite = TRUE, 
-            gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-```
-
-# Save individual predictor layers in single folder
-```{r}
-l <- list.dirs("process", full.names = TRUE, recursive = TRUE)
-l <- l[basename(l) == "outputs"]
-l <- l[!grepl("_archive", l, fixed = TRUE)]
-l <- list.files(l, pattern = "\\.tif$", full.names = TRUE)
-n <- tools::file_path_sans_ext(basename(l))
-preds <- rast(l)
-names(preds) <- n
-
-for(i in 1:nlyr(preds)){
-  writeRaster(preds[[i]], paste0("_predictor_stack_single/", names(preds)[i], ".tif"), 
-              overwrite = TRUE, gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
-}
-```
 

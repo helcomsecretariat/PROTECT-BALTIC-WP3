@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+---
+
+# Load packages/functions/data
+```{r, include = FALSE}
+library(terra)
+grid <- rast("../../../grid/outputs/grid_marine_250m_v2.tif")
+if(!dir.exists("outputs")){dir.create("outputs")}
+source("../../_functions/resint.R") # Script for resampling
+exnon <- FALSE # Export non-resampled rasters?
+```
+
+# Coarse substrate
+```{r}
+temp <- rast("inputs/250m_Pan_Baltic_SGU_Substrate/coarse.tif")
+temp <- temp/100 # Convert probability scale to max 100
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative values
+writeRaster(temp_res, "outputs/coarse_substrate_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+# Hard substrate
+```{r}
+temp <- rast("inputs/250m_Pan_Baltic_SGU_Substrate/hard.tif")
+temp <- temp/100 # Convert probability scale to max 100
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative values
+writeRaster(temp_res, "outputs/hard_substrate_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+
+# Sand substrate
+```{r}
+temp <- rast("inputs/250m_Pan_Baltic_SGU_Substrate/sand.tif")
+temp <- temp/100 # Convert probability scale to max 100
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative values
+writeRaster(temp_res, "outputs/sand_substrate_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```
+
+# Soft substrate
+```{r}
+temp <- rast("inputs/250m_Pan_Baltic_SGU_Substrate/soft.tif")
+temp <- temp/100 # Convert probability scale to max 100
+temp_res <- resint(temp, grid, nit = 50, win_size = 3, method = "cubic")
+temp_res[temp_res < 0] <- 0 # Fix bad cubic interpolations giving slight negative values
+writeRaster(temp_res, "outputs/soft_substrate_resample_250m.tif", overwrite = TRUE, 
+            datatype = "FLT4S", gdal=c("COMPRESS=ZSTD", "PREDICTOR=2"))
+```

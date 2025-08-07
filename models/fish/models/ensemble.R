@@ -3,12 +3,12 @@
 # to make sure each of the different model packages are also installed
 
 ########## Settings ##########
-mod_id <- "run3" # Unique ID for model runs
-run_name <- "Data from Sweden, Finland, Poland, Lithuania, Germany - no bottom trawls, all other gear types - absencences generated across all data - relevant predictors including CV"
+mod_id <- "run1" # Unique ID for model runs
+run_name <- "All data, absencences generated across all data, relevant predictors including CV, Bigboss default settings, except custom XGBoost"
 # Models to include in the ensemble
 #mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
-mod_methods <- c("RF", "XGBOOST") # Subset
-n_rep <- 1 # Number of cross-validation repetitions
+mod_methods <- c("RF", "XGBOOST", "GBM", "CTA", "GAM", "GLM") # Subset
+n_rep <- 5 # Number of cross-validation repetitions
 cv_perc <- 0.7 # Percentage of training/testing data
 
 ########## Setup ##########
@@ -40,11 +40,14 @@ l <- list.files(start_dir)
 spec_list$run_initiated[spec_list$scientific_name %in% l] <- 1
 spec_miss <- spec_list %>%
   filter(run_initiated == 0) %>%
-  filter(quantity > 200)
+  filter(quantity > 100)
 
-spec <- first(spec_miss$scientific_name)
+spec_full <- first(spec_miss$scientific_name)
+spec_full_ <- gsub(" ", ".", spec_full)
+spec <- spec_full
+if(nchar(spec) > 25){spec <- substr(spec, 1, 25)} # shorten name if too long (issues writing files)
 spec_ <- gsub(" ", ".", spec)
-write.csv(NA, paste0(start_dir, "/", spec)) # Record that run was initiated in _run_started folder
+write.csv(NA, paste0(start_dir, "/", spec_full)) # Record that run was initiated in _run_started folder
 spec_list$run_initiated[spec_list$scientific_name == spec] <- 1 
 #write.csv(spec_list, "spec_list.csv", row.names = FALSE)
 
@@ -57,7 +60,7 @@ extra_dir <- paste0("outputs_extra/", mod_id, "/", spec_)
 if(!dir.exists(extra_dir)){dir.create(extra_dir, recursive = TRUE)}
 
 ########## Observation data ########## (This part you will probably need to modify according to the species group/datasets)
-obs <- read.csv("../observations/outputs/observations_SE_FI_PO_LT_DE.csv")
+obs <- read.csv("../observations/outputs/observations_all.csv")
 
 # Generate absences for all date/lat/long combinations
 obs <- obs %>%
@@ -87,16 +90,16 @@ obs <- obs %>%
 # you can create a new column that combines these two and replace dataset with that column
 
 obs$dataset <- "All" # Keep this line if you do want to generate absences across all the data
-obs_dataset <- unique(obs$dataset[obs$scientific_name == spec])
+obs_dataset <- unique(obs$dataset[obs$scientific_name == spec_full])
 
 obs <- obs %>%
-  filter(scientific_name == spec | scientific_name == "_absence") %>%
+  filter(scientific_name == spec_full | scientific_name == "_absence") %>%
   filter(dataset %in% obs_dataset | 
            (!dataset %in% obs_dataset & scientific_name != "_absence")) %>%
   filter(!is.na(quantity))
 
 # Set absences to species name, absence = when quantity is 0
-obs$scientific_name[obs$scientific_name == "_absence"] <- spec
+obs$scientific_name[obs$scientific_name == "_absence"] <- spec_full
 
 # Calculate species count in each sample
 obs <- obs %>%
@@ -157,13 +160,36 @@ mod_cv <- bm_CrossValidation(bm.format = dat,
                              strategy = 'user.defined',
                              user.table = calib)
 
+# Custom model settings (Bigboss as default otherwise)
+# Use OptionsBigBoss to see default settings
+xg_nrounds <- 1000
+xg_early_stopping_rounds <- 20
+xg_max_depth <- 4
+xg_eta <- 0.01
+
+user.XGBOOST <- vector("list", n_rep)
+names(user.XGBOOST) <- paste0("_allData_RUN", 1:n_rep)
+user.XGBOOST <- lapply(user.XGBOOST, function(x) list(nrounds = xg_nrounds,
+                                                      early_stopping_rounds = xg_early_stopping_rounds,
+                                                      params = list(max_depth = xg_max_depth, eta = xg_eta)))
+
+user_val <- list(XGBOOST.binary.xgboost.xgboost = user.XGBOOST)
+
+user_opt <- bm_ModelingOptions(data.type = 'binary',
+                               models = mod_methods,
+                               strategy = "user.defined",
+                               user.val = user_val,
+                               user.base = "bigboss",
+                               bm.format = dat,
+                               calib.lines = mod_cv)
+
 # Single models
 mod <- BIOMOD_Modeling(bm.format = dat,
                        models = mod_methods,
                        modeling.id = mod_id,
                        CV.strategy = 'user.defined',
                        CV.user.table = mod_cv,
-                       OPT.strategy = 'bigboss',
+                       OPT.user = user_opt,
                        CV.do.full.models = FALSE,
                        var.import = 1,
                        metric.eval = c('TSS', 'ROC'),
@@ -174,7 +200,7 @@ mod <- BIOMOD_Modeling(bm.format = dat,
 #plot(xy, col = clrs, pch = 16, cex = 1.5)
 
 # Model evaluation plot export
-bm_plot <- bm_PlotEvalMean(mod, do.plot = FALSE)
+bm_plot <- bm_PlotEvalMean(mod, dataset = "validation", do.plot = FALSE)
 temp_plot <- bm_plot[["plot"]]
 pdf(file = paste0(extra_dir, "/", spec_, "_evaluation.pdf"),
     width = 8,
@@ -186,15 +212,17 @@ dev.off()
 # Remove models with large calibration-validation differential (over-fitting)
 mod_eval <- get_evaluations(mod)
 mod_eval <- filter(mod_eval, is.na(validation) == FALSE)
-mod_eval <- filter(mod_eval, metric.eval == "TSS")
 mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
+mod_eval <- filter(mod_eval, metric.eval == "TSS")
+write.csv(mod_eval, paste0(extra_dir, "/", spec_, "_validation_scores.csv"), row.names = FALSE)
 mod_eval <- filter(mod_eval, overfit < 1)
 mod_select <- mod_eval$full.name
 
 emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
                                 models.chosen = mod_select,
                                 em.by = 'all',
-                                em.algo = c('EMwmean'), # Weighted mean for ensemble probabilities
+                                #em.algo = c('EMwmean'), # Weighted mean for ensemble probabilities
+                                em.algo = c('EMwmean', 'EMca'), # Committee averaging
                                 metric.eval = c('TSS'),
                                 metric.select = c('ROC'),
                                 metric.select.thresh = c(0.7), # Cutoff for inclusion/removal
@@ -210,7 +238,7 @@ bm_plot <- bm_PlotResponseCurves(bm.out = emod,
                                  do.plot = FALSE)
 temp_plot <- bm_plot[["plot"]]
 pdf(file = paste0(extra_dir, "/", spec_, "_response_curves.pdf"),
-    width = nlyr(preds)*0.9,
+    width = nlyr(preds)*1.4,
     height = nlyr(preds)*0.9)
 print(temp_plot)
 dev.off()
@@ -222,7 +250,7 @@ bm_plot <- bm_PlotVarImpBoxplot(mod,
 
 temp_plot <- bm_plot[["plot"]]
 pdf(file = paste0(extra_dir, "/", spec_, "_var_importance.pdf"),
-    width = nlyr(preds)*1.2,
+    width = nlyr(preds)*1.4,
     height = nlyr(preds)*0.9)
 print(temp_plot)
 dev.off()
@@ -235,12 +263,14 @@ mod_proj <- BIOMOD_Projection(bm.mod = mod,
                               metric.binary = 'TSS',
                               build.clamping.mask = FALSE,
                               keep.in.memory = FALSE,
+                              do.stack = FALSE, # Check to see if this help reduce memory usage
                               omit.na = FALSE
 )
 
+# Individual projections plot export
 temp_plot <- plot(mod_proj, do.plot = FALSE)
 pdf(file = paste0(extra_dir, "/", spec_, "_individual_projections.pdf"),
-    width = n_rep*5,
+    width = n_rep*10,
     height = length(mod_methods)*5)
 print(temp_plot)
 dev.off()
@@ -249,14 +279,15 @@ emod_proj <- BIOMOD_EnsembleForecasting(bm.em = emod,
                                         bm.proj = mod_proj,
                                         models.chosen = 'all',
                                         metric.binary = 'TSS',
+                                        keep.in.memory = FALSE,
                                         do.stack = FALSE,
 )
 
 # Ensemble projections plot export
 temp_plot <- plot(emod_proj, do.plot = FALSE)
 pdf(file = paste0(extra_dir, "/", spec_, "_ensemble_projections.pdf"),
-    width = 10,
-    height = 15)
+    width = 15,
+    height = 10)
 print(temp_plot)
 dev.off()
 
@@ -264,18 +295,34 @@ dev.off()
 end_time <- Sys.time()
 run_time <- as.numeric(difftime(end_time, start_time, units = "hours"))
 
-spec_list$run_completed[spec_list$scientific_name == spec] <- 1
-spec_list$run_time[spec_list$scientific_name == spec] <- run_time
-spec_list$models[spec_list$scientific_name == spec] <- paste(mod_methods, collapse = ", ")
-spec_list$num_presence[spec_list$scientific_name == spec] <- nrow(obs[obs$quantity == 1, ])
-spec_list$num_absence[spec_list$scientific_name == spec] <- nrow(obs[obs$quantity == 0, ])
-spec_list$run_name[spec_list$scientific_name == spec] <- run_name
+#spec_list <- read.csv("spec_list.csv")
+spec_list$run_completed[spec_list$scientific_name == spec_full] <- 1
+spec_list$run_time[spec_list$scientific_name == spec_full] <- run_time
+spec_list$models[spec_list$scientific_name == spec_full] <- paste(mod_methods, collapse = ", ")
+spec_list$num_presence[spec_list$scientific_name == spec_full] <- nrow(obs[obs$quantity == 1, ])
+spec_list$num_absence[spec_list$scientific_name == spec_full] <- nrow(obs[obs$quantity == 0, ])
+spec_list$run_name[spec_list$scientific_name == spec_full] <- run_name
+write.csv(spec_list[spec_list$scientific_name == spec_full,], paste0(finish_dir, "/", spec_full_, ".csv"), row.names = FALSE)
 
-write.csv(spec_list[spec_list$scientific_name == spec,], paste0(finish_dir, "/", spec_, ".csv"), row.names = FALSE)
+# Save full run log
+l <- list.files(start_dir)
 ls <- list.files(start_dir, full.names = TRUE)
 lf <- list.files(finish_dir, full.names = TRUE)
 lf <- lf[!grepl("_details.csv", lf, fixed = TRUE)]
+spec_finish <- vroom(lf)
+spec_list <- read.csv("spec_list.csv")
+spec_list$run_initiated[spec_list$scientific_name %in% l] <- 1
+m1 <- match(spec_list$scientific_name, spec_finish$scientific_name)
+m2 <- !is.na(m1)
+spec_list[m2, ] <- spec_finish[m1[m2], ]
+#write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
+
+# Only when all species completed? (might not work if some models fail)
 if(length(ls) == length(lf)){
-  spec_finish <- vroom(lf)
-  write.csv(spec_finish, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
+  #spec_finish <- vroom(lf)
+  write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
 }
+
+# Record species completion (now redundant)
+#write.csv(spec_list, "spec_list.csv", row.names = FALSE)
+#write.csv(spec_list, paste0("outputs/", mod_id, "_details.csv"), row.names = FALSE)

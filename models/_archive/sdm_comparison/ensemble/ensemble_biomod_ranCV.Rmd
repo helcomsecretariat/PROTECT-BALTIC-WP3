@@ -1,0 +1,83 @@
+---
+title: "R Notebook"
+---
+
+```{r}
+library(dplyr)
+library(terra)
+library(biomod2)
+library(pROC)
+source("bm_ROC.R")
+
+if(!dir.exists("inputs")){dir.create("inputs")}
+if(!dir.exists("outputs")){dir.create("outputs")}
+grid <- rast("../../../grid/outputs/grid_250m.tif")
+```
+
+## Settings 
+```{r}
+spec <- "Macoma balthica"
+spec_ <- gsub(" ", "_", spec)
+mod_methods <- c("GBM", "GAM", "GLM")
+```
+
+## Import observations
+```{r}
+sdir <- paste0("outputs/", gsub(" ", "_", spec))
+if(!dir.exists(sdir)){dir.create(sdir)}
+mod_dir <- paste0(sdir, "/", gsub(" ", "_", spec), "_model.sdm")
+obs_dir <- paste0("../input_data/observations/", gsub(" ", "_", spec), "_observations.csv")
+obs <- read.csv(obs_dir)
+#train <- select(obs, train1, train2, train3)
+obs <- select(obs, count, long, lat)
+obs <- vect(obs, geom = c("long", "lat"), crs="+proj=longlat +datum=WGS84")
+obs <- project(obs, crs(grid))
+```
+
+## Import predictors
+```{r}
+l <- list.files("../input_data/predictors", full.names = T, pattern = "\\.tif$")
+preds <- rast(l)
+names(preds) <- tools::file_path_sans_ext(basename(l))
+
+# Aggregate predictors for faster testing
+preds <- aggregate(preds, fact = 5, fun = "max", na.rm = T)
+```
+
+## Prepare model
+```{r}
+dat <- BIOMOD_FormatingData(resp.var = obs,
+                            expl.var = preds,
+                            resp.name = spec_,
+                            dir.name = "outputs")
+
+dat
+plot(dat)
+```
+
+## Single models
+```{r}
+mod <- BIOMOD_Modeling(bm.format = dat,
+                       models = mod_methods,
+                       modeling.id = spec_,
+                       CV.strategy = 'random',
+                       CV.nb.rep = 3,
+                       CV.perc = 0.8,
+                       OPT.strategy = 'bigboss',
+                       var.import = 2,
+                       metric.eval = c('TSS','ROC'),
+                       do.progress = FALSE)
+```
+
+```{r}
+train <- get_calib_lines(mod)
+train <- train[ , -which(colnames(train) %in% c("_allData_allRun"))]
+```
+
+
+## Plot ROC curves
+```{r}
+source("bm_ROC.R")
+bm_ROC(mod, mod_methods)
+```
+
