@@ -3,13 +3,14 @@
 # to make sure each of the different model packages are also installed
 
 ########## Settings ##########
-mod_id <- "run1" # Unique ID for model runs
+mod_id <- "run3" # Unique ID for model runs
 run_name <- "All data, absencences generated across all data, relevant predictors including CV, Bigboss default settings, except custom XGBoost"
 # Models to include in the ensemble
 #mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
-mod_methods <- c("RF", "XGBOOST", "GBM", "CTA", "GAM", "GLM") # Subset
+mod_methods <- c("RF", "XGBOOST", "CTA", "GAM", "GLM") # Subset
 n_rep <- 5 # Number of cross-validation repetitions
 cv_perc <- 0.7 # Percentage of training/testing data
+predictor_dir <- "../predictors/predictor_stack_filter"
 
 ########## Setup ##########
 # Packages
@@ -21,6 +22,8 @@ library(dplyr)
 library(tidyr)
 library(FNN)
 library(vroom)
+library(viridis)
+library(ggplot2)
 
 source("extract_near.R") # Function to extract raster values to point from nearest cell
 pdf(NULL)
@@ -48,7 +51,7 @@ spec <- spec_full
 if(nchar(spec) > 25){spec <- substr(spec, 1, 25)} # shorten name if too long (issues writing files)
 spec_ <- gsub(" ", ".", spec)
 write.csv(NA, paste0(start_dir, "/", spec_full)) # Record that run was initiated in _run_started folder
-spec_list$run_initiated[spec_list$scientific_name == spec] <- 1 
+spec_list$run_initiated[spec_list$scientific_name == spec_full] <- 1
 #write.csv(spec_list, "spec_list.csv", row.names = FALSE)
 
 # Biomod file/folder names and creation of output folders
@@ -112,8 +115,8 @@ obs$quantity[obs$quantity > 0] <- 1
 
 ########## Predictors ##########
 grid <- rast("../grid/outputs/grid_marine_250m_v2.tif")
-l <- list.files("../predictors/predictor_stack_filter", pattern = ".tif$", full.names = TRUE)
-ls <- list.files("../predictors/predictor_stack_filter", pattern = ".tif$", full.names = FALSE)
+l <- list.files(predictor_dir, pattern = ".tif$", full.names = TRUE)
+ls <- list.files(predictor_dir, pattern = ".tif$", full.names = FALSE)
 preds <- rast(l)
 names(preds) <- tools::file_path_sans_ext(ls)
 
@@ -135,7 +138,7 @@ plot(grid, col = "lightgrey")
 plot(xy, col = clrs, pch = 16, cex = 0.3, add = TRUE)
 dev.off()
 
-########## Modeling ##########
+########## Model setup ##########
 ## Prepare model
 dat <- BIOMOD_FormatingData(resp.var = obs$quantity,
                             expl.var = df_preds,
@@ -183,7 +186,7 @@ user_opt <- bm_ModelingOptions(data.type = 'binary',
                                bm.format = dat,
                                calib.lines = mod_cv)
 
-# Single models
+########## Single models ##########
 mod <- BIOMOD_Modeling(bm.format = dat,
                        models = mod_methods,
                        modeling.id = mod_id,
@@ -208,14 +211,14 @@ pdf(file = paste0(extra_dir, "/", spec_, "_evaluation.pdf"),
 print(temp_plot)
 dev.off()
 
-# Ensemble model
+########## Ensemble model ##########
 # Remove models with large calibration-validation differential (over-fitting)
 mod_eval <- get_evaluations(mod)
 mod_eval <- filter(mod_eval, is.na(validation) == FALSE)
 mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
 mod_eval <- filter(mod_eval, metric.eval == "TSS")
 write.csv(mod_eval, paste0(extra_dir, "/", spec_, "_validation_scores.csv"), row.names = FALSE)
-mod_eval <- filter(mod_eval, overfit < 1)
+mod_eval <- filter(mod_eval, overfit < 1) # Use value of 1 for no removal
 mod_select <- mod_eval$full.name
 
 emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
@@ -230,14 +233,27 @@ emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
                                 EMci.alpha = 0.05,
                                 EMwmean.decay = 'proportional')
 
-# Response curves plot export
+# Response curves plot export (single models)
+bm_plot <- bm_PlotResponseCurves(bm.out = mod, 
+                                 models.chosen = get_built_models(mod),
+                                 fixed.var = 'median',
+                                 do.progress = FALSE,
+                                 do.plot = FALSE)
+temp_plot <- bm_plot[["plot"]]
+pdf(file = paste0(extra_dir, "/", spec_, "_response_curves_single.pdf"),
+    width = nlyr(preds)*1.4,
+    height = nlyr(preds)*0.9)
+print(temp_plot)
+dev.off()
+
+# Response curves plot export (ensemble)
 bm_plot <- bm_PlotResponseCurves(bm.out = emod, 
                                  models.chosen = get_built_models(emod)[1],
                                  fixed.var = 'median',
                                  do.progress = FALSE,
                                  do.plot = FALSE)
 temp_plot <- bm_plot[["plot"]]
-pdf(file = paste0(extra_dir, "/", spec_, "_response_curves.pdf"),
+pdf(file = paste0(extra_dir, "/", spec_, "_response_curves_ensemble.pdf"),
     width = nlyr(preds)*1.4,
     height = nlyr(preds)*0.9)
 print(temp_plot)
@@ -255,7 +271,7 @@ pdf(file = paste0(extra_dir, "/", spec_, "_var_importance.pdf"),
 print(temp_plot)
 dev.off()
 
-# Predictions
+########## Predictions (individual models) ##########
 mod_proj <- BIOMOD_Projection(bm.mod = mod,
                               proj.name = proj_n,
                               new.env = preds,
@@ -275,6 +291,7 @@ pdf(file = paste0(extra_dir, "/", spec_, "_individual_projections.pdf"),
 print(temp_plot)
 dev.off()
 
+########## Predictions (ensemble) ##########
 emod_proj <- BIOMOD_EnsembleForecasting(bm.em = emod,
                                         bm.proj = mod_proj,
                                         models.chosen = 'all',
@@ -291,6 +308,61 @@ pdf(file = paste0(extra_dir, "/", spec_, "_ensemble_projections.pdf"),
 print(temp_plot)
 dev.off()
 
+########## Probabilities masked by binary (experimental) ##########
+em_list <- terra::unwrap(emod_proj@proj.out@link)
+em_wmean <- rast(em_list[grepl("EMwmean", em_list) & !grepl("TSSbin", em_list)])
+em_wmean_bin <- rast(em_list[grepl("EMwmean", em_list) & grepl("TSSbin", em_list)]) # Use ensemble binary threshold
+em_ca <- rast(em_list[grepl("EMca", em_list) & !grepl("TSSbin", em_list)]) # Alternatively, use committee averaging
+
+em_delta <- em_wmean
+em_delta[em_wmean_bin == 0] <- 0 # Ensemble threshold binary mask
+#em_delta[em_ca < 500] <- 0 # Committee averaging binary
+em_delta_prob <- em_delta
+em_delta_prob <- em_delta_prob*grid
+em_delta[em_delta == 0] <- NA
+
+em_delta <- ((em_delta - minmax(em_delta)[1,]) / (minmax(em_delta)[2,] - minmax(em_delta)[1,])) * (1000 - 1) + 1
+em_delta <- round(em_delta)
+em_delta[is.na(em_delta)] <- 0
+em_delta <- em_delta*grid
+
+# Export delta model
+em_fp <- dirname(em_list[1])
+writeRaster(em_delta_prob, paste0(em_fp, "/", spec_, "_delta.tif"), overwrite = TRUE)
+writeRaster(em_delta, paste0(em_fp, "/", spec_, "_delta_standardized.tif"), overwrite = TRUE)
+
+# Export plots
+# Non-standardized delta
+df <- as.data.frame(em_delta_prob, xy = TRUE)
+colnames(df) <- c("x", "y", "z")
+temp_plot <- ggplot(df, aes(x = x, y = y, fill = z)) +
+  geom_raster() +
+  scale_fill_viridis(name = "Value", option = "D") +
+  coord_equal() +
+  theme(panel.background = element_rect(fill = "grey60"), panel.grid = element_blank())
+
+pdf(file = paste0(extra_dir, "/", spec_, "_delta.pdf"),
+    width = 15,
+    height = 10)
+print(temp_plot)
+dev.off()
+
+# Standardized delta
+df <- as.data.frame(em_delta, xy = TRUE)
+colnames(df) <- c("x", "y", "z")
+temp_plot <- ggplot(df, aes(x = x, y = y, fill = z)) +
+  geom_raster() +
+  scale_fill_viridis(name = "Value", option = "D") +
+  coord_equal() +
+  theme(panel.background = element_rect(fill = "grey60"), panel.grid = element_blank())
+
+pdf(file = paste0(extra_dir, "/", spec_, "_delta_standardized.pdf"),
+    width = 15,
+    height = 10)
+print(temp_plot)
+dev.off()
+
+########## Export run details ##########
 # Record run time and export run details
 end_time <- Sys.time()
 run_time <- as.numeric(difftime(end_time, start_time, units = "hours"))
@@ -315,14 +387,10 @@ spec_list$run_initiated[spec_list$scientific_name %in% l] <- 1
 m1 <- match(spec_list$scientific_name, spec_finish$scientific_name)
 m2 <- !is.na(m1)
 spec_list[m2, ] <- spec_finish[m1[m2], ]
-#write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
+write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
 
 # Only when all species completed? (might not work if some models fail)
-if(length(ls) == length(lf)){
-  #spec_finish <- vroom(lf)
-  write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
-}
-
-# Record species completion (now redundant)
-#write.csv(spec_list, "spec_list.csv", row.names = FALSE)
-#write.csv(spec_list, paste0("outputs/", mod_id, "_details.csv"), row.names = FALSE)
+#if(length(ls) == length(lf)){
+#  #spec_finish <- vroom(lf)
+#  write.csv(spec_list, paste0(finish_dir, "/_", mod_id, "_details.csv"), row.names = FALSE)
+#}
