@@ -11,3 +11,4 @@
 
 # Ignore hidden files
 .* 
+.Rproj.user
