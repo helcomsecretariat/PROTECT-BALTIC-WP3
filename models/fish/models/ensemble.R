@@ -3,14 +3,14 @@
 # to make sure each of the different model packages are also installed
 
 ########## Settings ##########
-mod_id <- "run3" # Unique ID for model runs
-run_name <- "All data, absencences generated across all data, relevant predictors including CV, Bigboss default settings, except custom XGBoost"
+mod_id <- "run9_noCV_noOxy" # Unique ID for model runs
+run_name <- "All predictors excluding mean oxygen"
 # Models to include in the ensemble
 #mod_methods <- c("GAM", "GLM", "RF", "GBM", "XGBOOST", "CTA", "MARS") # all options
 mod_methods <- c("RF", "XGBOOST", "CTA", "GAM", "GLM") # Subset
 n_rep <- 5 # Number of cross-validation repetitions
-cv_perc <- 0.7 # Percentage of training/testing data
-predictor_dir <- "../predictors/predictor_stack_filter"
+cv_perc <- 0.75 # Percentage of training/testing data
+predictor_dir <- "../predictors/predictor_stack_fish"
 
 ########## Setup ##########
 # Packages
@@ -43,7 +43,7 @@ l <- list.files(start_dir)
 spec_list$run_initiated[spec_list$scientific_name %in% l] <- 1
 spec_miss <- spec_list %>%
   filter(run_initiated == 0) %>%
-  filter(quantity > 100)
+  filter(quantity > 50)
 
 spec_full <- first(spec_miss$scientific_name)
 spec_full_ <- gsub(" ", ".", spec_full)
@@ -216,19 +216,41 @@ dev.off()
 mod_eval <- get_evaluations(mod)
 mod_eval <- filter(mod_eval, is.na(validation) == FALSE)
 mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
-mod_eval <- filter(mod_eval, metric.eval == "TSS")
 write.csv(mod_eval, paste0(extra_dir, "/", spec_, "_validation_scores.csv"), row.names = FALSE)
+mod_eval <- filter(mod_eval, metric.eval == "ROC")
 mod_eval <- filter(mod_eval, overfit < 1) # Use value of 1 for no removal
 mod_select <- mod_eval$full.name
 
+# Run with PA+run for ensemble validation scores
+# (the ensemble must be done for each CV repetition to get validation scores)
+emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
+                                models.chosen = mod_select,
+                                #em.by = 'all',
+                                em.by = 'PA+run',
+                                em.algo = c('EMwmean', 'EMci'), # Weighted mean and confidence intervals
+                                metric.eval = c('TSS', 'ROC'),
+                                metric.select = c('ROC'),
+                                metric.select.thresh = c(0.7), # Cutoff for inclusion/removal
+                                metric.select.dataset = 'validation',
+                                var.import = 1,
+                                EMci.alpha = 0.05,
+                                EMwmean.decay = 'proportional')
+
+# Save ensemble validation scores
+mod_eval <- get_evaluations(emod)
+#mod_eval <- filter(mod_eval, is.na(validation) == FALSE)
+mod_eval$overfit <- mod_eval$calibration - mod_eval$validation
+write.csv(mod_eval, paste0(extra_dir, "/", spec_, "_ensemble_validation_scores.csv"), row.names = FALSE)
+
+# Run with 'all' for single ensemble
 emod <- BIOMOD_EnsembleModeling(bm.mod = mod,
                                 models.chosen = mod_select,
                                 em.by = 'all',
-                                #em.algo = c('EMwmean'), # Weighted mean for ensemble probabilities
-                                em.algo = c('EMwmean', 'EMca'), # Committee averaging
-                                metric.eval = c('TSS'),
+                                em.algo = c('EMwmean', 'EMci'), # Weighted mean and confidence intervals
+                                metric.eval = c('TSS', 'ROC'),
                                 metric.select = c('ROC'),
                                 metric.select.thresh = c(0.7), # Cutoff for inclusion/removal
+                                metric.select.dataset = 'validation',
                                 var.import = 1,
                                 EMci.alpha = 0.05,
                                 EMwmean.decay = 'proportional')
@@ -308,15 +330,13 @@ pdf(file = paste0(extra_dir, "/", spec_, "_ensemble_projections.pdf"),
 print(temp_plot)
 dev.off()
 
-########## Probabilities masked by binary (experimental) ##########
+########## Probabilities masked by binary (delta output) ##########
 em_list <- terra::unwrap(emod_proj@proj.out@link)
 em_wmean <- rast(em_list[grepl("EMwmean", em_list) & !grepl("TSSbin", em_list)])
 em_wmean_bin <- rast(em_list[grepl("EMwmean", em_list) & grepl("TSSbin", em_list)]) # Use ensemble binary threshold
-em_ca <- rast(em_list[grepl("EMca", em_list) & !grepl("TSSbin", em_list)]) # Alternatively, use committee averaging
 
 em_delta <- em_wmean
 em_delta[em_wmean_bin == 0] <- 0 # Ensemble threshold binary mask
-#em_delta[em_ca < 500] <- 0 # Committee averaging binary
 em_delta_prob <- em_delta
 em_delta_prob <- em_delta_prob*grid
 em_delta[em_delta == 0] <- NA
